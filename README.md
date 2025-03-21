@@ -113,6 +113,9 @@ Our vision is to revolutionize how AI agents collaborate to solve real-world tas
   </p>
 </div>
 
+- **[2025.03.21]**: Integrated OpenRouter model platform, fix bug with Gemini tool calling
+- **[2025.03.20]**: Accept header in MCP Toolkit, support automatic playwright installation
+- **[2025.03.16]**: Support Bing search, Baidu search
 - **[2025.03.12]**: Added Bocha search in SearchToolkit, integrated Volcano Engine model platform, and enhanced Azure and OpenAI Compatible models with structured output and tool calling.
 - **[2025.03.11]**: We added MCPToolkit, FileWriteToolkit, and TerminalToolkit to enhance OWL agents with MCP tool calling, file writing capabilities, and terminal command execution.
 - **[2025.03.09]**: We added a web-based user interface that makes it easier to interact with the system.
@@ -595,8 +598,10 @@ We welcome contributions from the community! Here's how you can help:
 3. Submit pull requests with your improvements
 
 **Current Issues Open for Contribution:**
-- [#1905](https://github.com/camel-ai/camel/issues/1905)
-- [#1712](https://github.com/camel-ai/camel/issues/1712)
+- [#362](https://github.com/camel-ai/owl/issues/362)
+- [#1945](https://github.com/camel-ai/camel/issues/1945)
+- [#1925](https://github.com/camel-ai/camel/issues/1925)
+- [#1915](https://github.com/camel-ai/camel/issues/1915)
 
 
 To take on an issue, simply leave a comment stating your interest.
