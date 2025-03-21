@@ -27,7 +27,6 @@ venv/
 env/
 ENV/
 .env
-.venv
 
 # IDE
 .idea/
@@ -59,4 +58,3 @@ coverage.xml
 owl/camel/types/__pycache__/
 owl/camel/__pycache__/
 owl/camel/utils/__pycache_/
-tmp/
