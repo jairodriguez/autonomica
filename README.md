@@ -606,7 +606,7 @@ Join us ([*Discord*](https://discord.camel-ai.org/) or [*WeChat*](https://ghli.o
 
 Join us for further discussions!
 <!-- ![](./assets/community.png) -->
-![](./assets/community.jpeg)
+![](./assets/community.jpg)
 
 # ❓ FAQ
 
