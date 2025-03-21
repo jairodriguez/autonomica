@@ -1,3 +1,16 @@
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 import os
 import logging
 import json
@@ -81,11 +94,10 @@ def construct_learning_society(task: str) -> RolePlaying:
     user_agent_kwargs = {
         "model": models["user"],
     }
-    
+
     assistant_agent_kwargs = {
         "model": models["assistant"],
         "tools": tools,
-
     }
 
     task_kwargs = {
@@ -122,16 +134,26 @@ def analyze_chat_history(chat_history):
                         "message_index": i,
                     }
                     tool_calls.append(tool_info)
-                    print(f"Tool Call: {function.get('name')} Args: {function.get('arguments')}")
-                    logger.info(f"Tool Call: {function.get('name')} Args: {function.get('arguments')}")
+                    print(
+                        f"Tool Call: {function.get('name')} Args: {function.get('arguments')}"
+                    )
+                    logger.info(
+                        f"Tool Call: {function.get('name')} Args: {function.get('arguments')}"
+                    )
 
         elif message.get("role") == "tool" and "tool_call_id" in message:
             for tool_call in tool_calls:
                 if tool_call.get("call_id") == message.get("tool_call_id"):
                     result = message.get("content", "")
-                    result_summary = result[:100] + "..." if len(result) > 100 else result
-                    print(f"Tool Result: {tool_call.get('name')} Return: {result_summary}")
-                    logger.info(f"Tool Result: {tool_call.get('name')} Return: {result_summary}")
+                    result_summary = (
+                        result[:100] + "..." if len(result) > 100 else result
+                    )
+                    print(
+                        f"Tool Result: {tool_call.get('name')} Return: {result_summary}"
+                    )
+                    logger.info(
+                        f"Tool Result: {tool_call.get('name')} Return: {result_summary}"
+                    )
 
     print(f"Total tool calls found: {len(tool_calls)}")
     logger.info(f"Total tool calls found: {len(tool_calls)}")
@@ -146,7 +168,7 @@ def analyze_chat_history(chat_history):
 
 def run_learning_companion(task: str = None):
     """Run the learning companion with the given task.
-    
+
     Args:
         task (str, optional): The learning task description. Defaults to an example task.
     """
@@ -155,15 +177,17 @@ def run_learning_companion(task: str = None):
     I've also taken a basic statistics course. 
     I have about 10 hours per week to dedicate to learning. Devise a roadmap for me .
     """
-    
+
     society = construct_learning_society(task)
-    
+
     from owl.utils import run_society
-    answer, chat_history, token_count = run_society(society, round_limit = 5)
+
+    answer, chat_history, token_count = run_society(society, round_limit=5)
 
     # Record tool usage history
     analyze_chat_history(chat_history)
     print(f"\033[94mAnswer: {answer}\033[0m")
+
 
 if __name__ == "__main__":
     run_learning_companion()

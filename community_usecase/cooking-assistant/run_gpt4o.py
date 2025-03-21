@@ -1,3 +1,16 @@
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 import os
 import logging
 import json
@@ -13,8 +26,8 @@ from camel.toolkits import (
 from camel.societies import RolePlaying
 from camel.logger import set_log_level, get_logger
 
-    
-from owl.utils import run_society 
+
+from owl.utils import run_society
 import pathlib
 
 base_dir = pathlib.Path(__file__).parent.parent
@@ -117,16 +130,26 @@ def analyze_chat_history(chat_history):
                         "message_index": i,
                     }
                     tool_calls.append(tool_info)
-                    print(f"Tool Call: {function.get('name')} Args: {function.get('arguments')}")
-                    logger.info(f"Tool Call: {function.get('name')} Args: {function.get('arguments')}")
+                    print(
+                        f"Tool Call: {function.get('name')} Args: {function.get('arguments')}"
+                    )
+                    logger.info(
+                        f"Tool Call: {function.get('name')} Args: {function.get('arguments')}"
+                    )
 
         elif message.get("role") == "tool" and "tool_call_id" in message:
             for tool_call in tool_calls:
                 if tool_call.get("call_id") == message.get("tool_call_id"):
                     result = message.get("content", "")
-                    result_summary = result[:100] + "..." if len(result) > 100 else result
-                    print(f"Tool Result: {tool_call.get('name')} Return: {result_summary}")
-                    logger.info(f"Tool Result: {tool_call.get('name')} Return: {result_summary}")
+                    result_summary = (
+                        result[:100] + "..." if len(result) > 100 else result
+                    )
+                    print(
+                        f"Tool Result: {tool_call.get('name')} Return: {result_summary}"
+                    )
+                    logger.info(
+                        f"Tool Result: {tool_call.get('name')} Return: {result_summary}"
+                    )
 
     print(f"Total tool calls found: {len(tool_calls)}")
     logger.info(f"Total tool calls found: {len(tool_calls)}")
