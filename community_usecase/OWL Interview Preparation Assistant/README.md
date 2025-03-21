@@ -2,7 +2,7 @@
 
 An intelligent multi-agent interview preparation system powered by the OWL framework that helps you prepare for job interviews with comprehensive research, tailored questions, and detailed preparation plans.
 
-![Interview Preparation Assistant]()
+![Interview Preparation Assistant](https://github.com/parthshr370/owl/blob/community_usecase/parthshr370/community_usecase/OWL%20Interview%20Preparation%20Assistant/Screenshot_20250321_201930.png?raw=true)
 
 ## ✨ Features
 
