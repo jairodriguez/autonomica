@@ -126,6 +126,7 @@ Our vision is to revolutionize how AI agents collaborate to solve real-world tas
   </p>
 </div>
 
+- **[2025.03.26]**: Supported Gemini 2.5 Pro, added example run code
 - **[2025.03.21]**: Integrated OpenRouter model platform, fix bug with Gemini tool calling
 - **[2025.03.20]**: Accept header in MCP Toolkit, support automatic playwright installation
 - **[2025.03.16]**: Support Bing search, Baidu search
@@ -382,6 +383,9 @@ python examples/run_deepseek_zh.py
 
 # Run with other OpenAI-compatible models
 python examples/run_openai_compatible_model.py
+
+# Run with Gemini model
+python examples/run_gemini.py
 
 # Run with Azure OpenAI
 python examples/run_azure_openai.py
