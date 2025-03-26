@@ -39,7 +39,7 @@ async def construct_society(
     question: str,
     tools: List[FunctionTool],
 ) -> OwlRolePlaying:
-    """Build a multi-agent OwlRolePlaying instance for GitHub information retrieval.
+    r"""Build a multi-agent OwlRolePlaying instance for GitHub information retrieval.
 
     Args:
         question (str): The GitHub-related question to ask.
@@ -119,3 +119,26 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# Example Output:
+"""
+Successfully connected to SSE server
+Result: Here are the most recent pull requests in the camel-ai/camel repository:
+
+1. fix create_your_first_agents_society.ipynb: 2 typos
+   - PR #2011 opened by didier-durand
+
+2. fix: edit default function call message
+   - PR #2010 opened by MuggleJinx
+
+3. refactor: unify the stdio&sse configuration of mcp server
+   - PR #2009 opened by koch3092
+
+4. Refactor document processing toolkit and excel toolkit
+   - PR #2001 opened by JINO-ROHIT
+
+5. feat: Add unitests for BrowserToolkit
+   - PR #2000 opened by JoyceXu02
+
+... (more pull requests)
+"""
