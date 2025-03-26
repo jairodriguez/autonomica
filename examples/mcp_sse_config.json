@@ -1,5 +1,5 @@
 {
-  "mcpWebServers": {
+  "mcpServers": {
       "@modelcontextprotocol/fetch": {
       "url": "https://router.mcp.so/sse/zr9l18m8pudpzg"
         }
