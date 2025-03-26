@@ -466,7 +466,9 @@ npm install -g @executeautomation/playwright-mcp-server
 npx playwright install-deps
 ```
 
-Try our comprehensive MCP example in `examples/run_mcp.py` to see these capabilities in action!
+Try our comprehensive MCP examples:
+- `examples/run_mcp.py` - Basic MCP functionality demonstration
+- `examples/run_mcp_sse.py` - Example using the SSE protocol
 
 ## Available Toolkits
 
