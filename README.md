@@ -467,8 +467,8 @@ npx playwright install-deps
 ```
 
 Try our comprehensive MCP examples:
-- `examples/run_mcp.py` - Basic MCP functionality demonstration
-- `examples/run_mcp_sse.py` - Example using the SSE protocol
+- `examples/run_mcp.py` - Basic MCP functionality demonstration (local call, requires dependencies)
+- `examples/run_mcp_sse.py` - Example using the SSE protocol (Use remote services, no dependencies)
 
 ## Available Toolkits
 
