@@ -1,4 +1,3 @@
-````markdown
 # Content Curation with OWL & MCP
 
 This project leverages **OWL (Optimized Workforce Learning)** and **MCP (Multi-Agent Content Processing)** to automate content curation. The system scrapes top tech news websites, extracts relevant information, and compiles a summary report.
@@ -57,7 +56,4 @@ Or use the default task defined in the script.
 - Implement NLP-based **sentiment analysis** on extracted news.
 - Enable storing summaries in structured formats like JSON/CSV.
 
-## License
 
-MIT License
-````
