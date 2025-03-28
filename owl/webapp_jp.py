@@ -1,17 +1,16 @@
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Apache License 2.0（「ライセンス」）に基づいてライセンスされています。
+# あなたはライセンスに準拠している場合を除き、このファイルを使用できません。
+# ライセンスのコピーは以下から入手できます。
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# 適用される法律で要求されているか、書面で合意されていない限り、
+# ライセンスに基づいて配布されるソフトウェアは「現状のまま」で、
+# 明示的または黙示的ないかなる種類の保証や条件もなく配布されます。
+# ライセンスに基づく特定の言語での権限と制限については、ライセンスを参照してください。
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
-# Import from the correct module path
+# 正しいモジュールパスからインポート
 from utils import run_society
 import os
 import gradio as gr
@@ -29,35 +28,35 @@ import re
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 
-# Configure logging system
+# ロギングシステムを設定
 def setup_logging():
-    """Configure logging system to output logs to file, memory queue, and console"""
-    # Create logs directory (if it doesn't exist)
+    """ログをファイル、メモリキュー、およびコンソールに出力するようにロギングシステムを設定"""
+    # logsディレクトリを作成（存在しない場合）
     logs_dir = os.path.join(os.path.dirname(__file__), "logs")
     os.makedirs(logs_dir, exist_ok=True)
 
-    # Generate log filename (using current date)
+    # ログファイル名を生成（現在の日付を使用）
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     log_file = os.path.join(logs_dir, f"gradio_log_{current_date}.txt")
 
-    # Configure root logger (captures all logs)
+    # ルートロガーを設定（すべてのログをキャプチャ）
     root_logger = logging.getLogger()
 
-    # Clear existing handlers to avoid duplicate logs
+    # 重複ログを避けるために既存のハンドラをクリア
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
     root_logger.setLevel(logging.INFO)
 
-    # Create file handler
+    # ファイルハンドラを作成
     file_handler = logging.FileHandler(log_file, encoding="utf-8", mode="a")
     file_handler.setLevel(logging.INFO)
 
-    # Create console handler
+    # コンソールハンドラを作成
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
-    # Create formatter
+    # フォーマッタを作成
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
@@ -68,72 +67,72 @@ def setup_logging():
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    logging.info("Logging system initialized, log file: %s", log_file)
+    logging.info("ログシステムが初期化されました、ログファイル: %s", log_file)
     return log_file
 
 
-# Global variables
+# グローバル変数
 LOG_FILE = None
-LOG_QUEUE: queue.Queue = queue.Queue()  # Log queue
+LOG_QUEUE: queue.Queue = queue.Queue()  # ログキュー
 STOP_LOG_THREAD = threading.Event()
-CURRENT_PROCESS = None  # Used to track the currently running process
-STOP_REQUESTED = threading.Event()  # Used to mark if stop was requested
+CURRENT_PROCESS = None  # 現在実行中のプロセスを追跡するために使用
+STOP_REQUESTED = threading.Event()  # 停止が要求されたかどうかをマークするために使用
 
 
-# Log reading and updating functions
+# ログの読み取りと更新の関数
 def log_reader_thread(log_file):
-    """Background thread that continuously reads the log file and adds new lines to the queue"""
+    """継続的にログファイルを読み取り、新しい行をキューに追加するバックグラウンドスレッド"""
     try:
         with open(log_file, "r", encoding="utf-8") as f:
-            # Move to the end of file
+            # ファイルの末尾に移動
             f.seek(0, 2)
 
             while not STOP_LOG_THREAD.is_set():
                 line = f.readline()
                 if line:
-                    LOG_QUEUE.put(line)  # Add to conversation record queue
+                    LOG_QUEUE.put(line)  # 会話記録キューに追加
                 else:
-                    # No new lines, wait for a short time
+                    # 新しい行がない場合は短時間待機
                     time.sleep(0.1)
     except Exception as e:
-        logging.error(f"Log reader thread error: {str(e)}")
+        logging.error(f"ログリーダースレッドエラー: {str(e)}")
 
 
 def get_latest_logs(max_lines=100, queue_source=None):
-    """Get the latest log lines from the queue, or read directly from the file if the queue is empty
+    """キューから最新のログ行を取得するか、キューが空の場合はファイルから直接読み取る
 
-    Args:
-        max_lines: Maximum number of lines to return
-        queue_source: Specify which queue to use, default is LOG_QUEUE
+    引数:
+        max_lines: 返す最大行数
+        queue_source: 使用するキューを指定、デフォルトはLOG_QUEUE
 
-    Returns:
-        str: Log content
+    戻り値:
+        str: ログ内容
     """
     logs = []
     log_queue = queue_source if queue_source else LOG_QUEUE
 
-    # Create a temporary queue to store logs so we can process them without removing them from the original queue
+    # 元のキューから削除せずに処理できるように、ログを保存する一時キューを作成
     temp_queue = queue.Queue()
     temp_logs = []
 
     try:
-        # Try to get all available log lines from the queue
+        # キューから利用可能なすべてのログ行を取得
         while not log_queue.empty() and len(temp_logs) < max_lines:
             log = log_queue.get_nowait()
             temp_logs.append(log)
-            temp_queue.put(log)  # Put the log back into the temporary queue
+            temp_queue.put(log)  # ログを一時キューに戻す
     except queue.Empty:
         pass
 
-    # Process conversation records
+    # 会話記録を処理
     logs = temp_logs
 
-    # If there are no new logs or not enough logs, try to read the last few lines directly from the file
+    # 新しいログがないか、十分なログがない場合は、ファイルから直接最後の数行を読み取る
     if len(logs) < max_lines and LOG_FILE and os.path.exists(LOG_FILE):
         try:
             with open(LOG_FILE, "r", encoding="utf-8") as f:
                 all_lines = f.readlines()
-                # If there are already some logs in the queue, only read the remaining needed lines
+                # キューにすでにいくつかのログがある場合は、必要な残りの行だけを読み取る
                 remaining_lines = max_lines - len(logs)
                 file_logs = (
                     all_lines[-remaining_lines:]
@@ -141,27 +140,27 @@ def get_latest_logs(max_lines=100, queue_source=None):
                     else all_lines
                 )
 
-                # Add file logs before queue logs
+                # ファイルログをキューログの前に追加
                 logs = file_logs + logs
         except Exception as e:
-            error_msg = f"Error reading log file: {str(e)}"
+            error_msg = f"ログファイルの読み取りエラー: {str(e)}"
             logging.error(error_msg)
-            if not logs:  # Only add error message if there are no logs
+            if not logs:  # ログがない場合のみエラーメッセージを追加
                 logs = [error_msg]
 
-    # If there are still no logs, return a prompt message
+    # まだログがない場合は、プロンプトメッセージを返す
     if not logs:
-        return "Initialization in progress..."
+        return "初期化中..."
 
-    # Filter logs, only keep logs with 'camel.agents.chat_agent - INFO'
+    # ログをフィルタリングし、'camel.agents.chat_agent - INFO'を含むログのみを保持
     filtered_logs = []
     for log in logs:
         if "camel.agents.chat_agent - INFO" in log:
             filtered_logs.append(log)
 
-    # If there are no logs after filtering, return a prompt message
+    # フィルタリング後にログがない場合は、プロンプトメッセージを返す
     if not filtered_logs:
-        return "No conversation records yet."
+        return "まだ会話記録はありません。"
 
     # Process log content, extract the latest user and assistant messages
     simplified_logs = []
@@ -181,7 +180,8 @@ def get_latest_logs(max_lines=100, queue_source=None):
         content = "\n".join(lines)
 
         role_emoji = "🙋" if role.lower() == "user" else "🤖"
-        return f"""### {role_emoji} {role.title()} Agent
+        role_ja = "ユーザー" if role.lower() == "user" else "アシスタント"
+        return f"""### {role_emoji} {role_ja}エージェント
 
 {content}"""
 
@@ -240,29 +240,28 @@ def get_latest_logs(max_lines=100, queue_source=None):
     return "\n".join(formatted_logs)
 
 
-# Dictionary containing module descriptions
+# モジュールの説明を含む辞書
 MODULE_DESCRIPTIONS = {
-    "run": "Default mode: Using OpenAI model's default agent collaboration mode, suitable for most tasks.",
-    "run_mini": "Using OpenAI model with minimal configuration to process tasks",
-    "run_gemini": "Using Gemini model to process tasks",
-    "run_deepseek_zh": "Using deepseek model to process Chinese tasks",
-    "run_openai_compatible_model": "Using openai compatible model to process tasks",
-    "run_ollama": "Using local ollama model to process tasks",
-    "run_qwen_mini_zh": "Using qwen model with minimal configuration to process tasks",
-    "run_qwen_zh": "Using qwen model to process tasks",
-    "run_azure_openai": "Using azure openai model to process tasks",
-    "run_groq": "Using groq model to process tasks",
+    "run": "デフォルトモード: OpenAIモデルのデフォルトエージェント協力モードを使用し、ほとんどのタスクに適しています。",
+    "run_mini": "最小限の設定でOpenAIモデルを使用してタスクを処理します",
+    "run_deepseek_zh": "中国語タスクを処理するためにdeepseekモデルを使用します",
+    "run_openai_compatible_model": "OpenAI互換モデルを使用してタスクを処理します",
+    "run_ollama": "ローカルのollamaモデルを使用してタスクを処理します",
+    "run_qwen_mini_zh": "最小限の設定でqwenモデルを使用してタスクを処理します",
+    "run_qwen_zh": "qwenモデルを使用して中国語タスクを処理します",
+    "run_azure_openai": "Azure OpenAIモデルを使用してタスクを処理します",
+    "run_groq": "groqモデルを使用してタスクを処理します",
 }
 
 
-# Default environment variable template
+# デフォルトの環境変数テンプレート
 DEFAULT_ENV_TEMPLATE = """#===========================================
-# MODEL & API 
-# (See https://docs.camel-ai.org/key_modules/models.html#)
+# モデル & API 
+# (参照: https://docs.camel-ai.org/key_modules/models.html#)
 #===========================================
 
 # OPENAI API (https://platform.openai.com/api-keys)
-OPENAI_API_KEY='Your_Key'
+OPENAI_API_KEY='あなたのキー'
 # OPENAI_API_BASE_URL=""
 
 # Azure OpenAI API
@@ -273,137 +272,137 @@ OPENAI_API_KEY='Your_Key'
 
 
 # Qwen API (https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)
-QWEN_API_KEY='Your_Key'
+QWEN_API_KEY='あなたのキー'
 
 # DeepSeek API (https://platform.deepseek.com/api_keys)
-DEEPSEEK_API_KEY='Your_Key'
+DEEPSEEK_API_KEY='あなたのキー'
 
 #===========================================
-# Tools & Services API
+# ツール & サービス API
 #===========================================
 
 # Google Search API (https://coda.io/@jon-dallas/google-image-search-pack-example/search-engine-id-and-google-api-key-3)
-GOOGLE_API_KEY='Your_Key'
-SEARCH_ENGINE_ID='Your_ID'
+GOOGLE_API_KEY='あなたのキー'
+SEARCH_ENGINE_ID='あなたのID'
 
 # Chunkr API (https://chunkr.ai/)
-CHUNKR_API_KEY='Your_Key'
+CHUNKR_API_KEY='あなたのキー'
 
 # Firecrawl API (https://www.firecrawl.dev/)
-FIRECRAWL_API_KEY='Your_Key'
+FIRECRAWL_API_KEY='あなたのキー'
 #FIRECRAWL_API_URL="https://api.firecrawl.dev"
 """
 
 
 def validate_input(question: str) -> bool:
-    """Validate if user input is valid
+    """ユーザー入力が有効かどうかを検証
 
-    Args:
-        question: User question
+    引数:
+        question: ユーザーの質問
 
-    Returns:
-        bool: Whether the input is valid
+    戻り値:
+        bool: 入力が有効かどうか
     """
-    # Check if input is empty or contains only spaces
+    # 入力が空またはスペースのみかどうかをチェック
     if not question or question.strip() == "":
         return False
     return True
 
 
 def run_owl(question: str, example_module: str) -> Tuple[str, str, str]:
-    """Run the OWL system and return results
+    """OWLシステムを実行して結果を返す
 
-    Args:
-        question: User question
-        example_module: Example module name to import (e.g., "run_terminal_zh" or "run_deep")
+    引数:
+        question: ユーザーの質問
+        example_module: インポートする例モジュール名（例："run_terminal_zh"や"run_deep"）
 
-    Returns:
-        Tuple[...]: Answer, token count, status
+    戻り値:
+        Tuple[...]: 回答、トークン数、ステータス
     """
     global CURRENT_PROCESS
 
     # Validate input
     if not validate_input(question):
-        logging.warning("User submitted invalid input")
+        logging.warning("ユーザーが無効な入力を送信しました")
         return (
-            "Please enter a valid question",
+            "有効な質問を入力してください",
             "0",
-            "❌ Error: Invalid input question",
+            "❌ エラー: 無効な入力質問",
         )
 
     try:
         # Ensure environment variables are loaded
         load_dotenv(find_dotenv(), override=True)
         logging.info(
-            f"Processing question: '{question}', using module: {example_module}"
+            f"質問を処理中: '{question}', モジュール使用: {example_module}"
         )
 
         # Check if the module is in MODULE_DESCRIPTIONS
         if example_module not in MODULE_DESCRIPTIONS:
-            logging.error(f"User selected an unsupported module: {example_module}")
+            logging.error(f"ユーザーがサポートされていないモジュールを選択しました: {example_module}")
             return (
-                f"Selected module '{example_module}' is not supported",
+                f"選択されたモジュール '{example_module}' はサポートされていません",
                 "0",
-                "❌ Error: Unsupported module",
+                "❌ エラー: サポートされていないモジュール",
             )
 
         # Dynamically import target module
         module_path = f"examples.{example_module}"
         try:
-            logging.info(f"Importing module: {module_path}")
+            logging.info(f"モジュールをインポート中: {module_path}")
             module = importlib.import_module(module_path)
         except ImportError as ie:
-            logging.error(f"Unable to import module {module_path}: {str(ie)}")
+            logging.error(f"モジュール {module_path} をインポートできません: {str(ie)}")
             return (
-                f"Unable to import module: {module_path}",
+                f"モジュールをインポートできません: {module_path}",
                 "0",
-                f"❌ Error: Module {example_module} does not exist or cannot be loaded - {str(ie)}",
+                f"❌ エラー: モジュール {example_module} が存在しないか、読み込めません - {str(ie)}",
             )
         except Exception as e:
             logging.error(
-                f"Error occurred while importing module {module_path}: {str(e)}"
+                f"モジュール {module_path} のインポート中にエラーが発生しました: {str(e)}"
             )
             return (
-                f"Error occurred while importing module: {module_path}",
+                f"モジュールのインポート中にエラーが発生しました: {module_path}",
                 "0",
-                f"❌ Error: {str(e)}",
+                f"❌ エラー: {str(e)}",
             )
 
         # Check if it contains the construct_society function
         if not hasattr(module, "construct_society"):
             logging.error(
-                f"construct_society function not found in module {module_path}"
+                f"construct_society 関数がモジュール {module_path} に見つかりません"
             )
             return (
-                f"construct_society function not found in module {module_path}",
+                f"construct_society 関数がモジュール {module_path} に見つかりません",
                 "0",
-                "❌ Error: Module interface incompatible",
+                "❌ エラー: モジュールインターフェースが互換性がありません",
             )
 
         # Build society simulation
         try:
-            logging.info("Building society simulation...")
+            logging.info("社会シミュレーションを構築中...")
             society = module.construct_society(question)
 
         except Exception as e:
-            logging.error(f"Error occurred while building society simulation: {str(e)}")
+            logging.error(f"社会シミュレーションの構築中にエラーが発生しました: {str(e)}")
             return (
-                f"Error occurred while building society simulation: {str(e)}",
+                f"社会シミュレーションの構築中にエラーが発生しました: {str(e)}",
                 "0",
-                f"❌ Error: Build failed - {str(e)}",
+                f"❌ エラー: 構築に失敗しました - {str(e)}",
             )
 
         # Run society simulation
         try:
-            logging.info("Running society simulation...")
+            logging.info("社会シミュレーションを実行中...")
             answer, chat_history, token_info = run_society(society)
-            logging.info("Society simulation completed")
+            logging.info("社会シミュレーションが完了しました")
         except Exception as e:
-            logging.error(f"Error occurred while running society simulation: {str(e)}")
+            logging.error(f"社会シミュレーションの実行中にエラーが発生しました: {str(e)}")
             return (
-                f"Error occurred while running society simulation: {str(e)}",
+                f"社会シミュレーションの実行中にエラーが発生しました: {str(e)}",
                 "0",
-                f"❌ Error: Run failed - {str(e)}",
+                f"❌ エラー: 実行に失敗しました - {str(e)}",
             )
 
         # Safely get token count
@@ -415,33 +414,33 @@ def run_owl(question: str, example_module: str) -> Tuple[str, str, str]:
         total_tokens = completion_tokens + prompt_tokens
 
         logging.info(
-            f"Processing completed, token usage: completion={completion_tokens}, prompt={prompt_tokens}, total={total_tokens}"
+            f"処理が完了しました、トークン使用量: 完了={completion_tokens}, プロンプト={prompt_tokens}, 合計={total_tokens}"
         )
 
         return (
             answer,
-            f"Completion tokens: {completion_tokens:,} | Prompt tokens: {prompt_tokens:,} | Total: {total_tokens:,}",
-            "✅ Successfully completed",
+            f"完了トークン: {completion_tokens:,} | プロンプトトークン: {prompt_tokens:,} | 合計: {total_tokens:,}",
+            "✅ 正常に完了しました",
         )
 
     except Exception as e:
         logging.error(
-            f"Uncaught error occurred while processing the question: {str(e)}"
+            f"質問の処理中に予期しないエラーが発生しました: {str(e)}"
         )
-        return (f"Error occurred: {str(e)}", "0", f"❌ Error: {str(e)}")
+        return (f"エラーが発生しました: {str(e)}", "0", f"❌ エラー: {str(e)}")
 
 
 def update_module_description(module_name: str) -> str:
-    """Return the description of the selected module"""
-    return MODULE_DESCRIPTIONS.get(module_name, "No description available")
+    """選択されたモジュールの説明を返す"""
+    return MODULE_DESCRIPTIONS.get(module_name, "説明はありません")
 
 
-# Store environment variables configured from the frontend
+# フロントエンドから設定された環境変数を保存
 WEB_FRONTEND_ENV_VARS: dict[str, str] = {}
 
 
 def init_env_file():
-    """Initialize .env file if it doesn't exist"""
+    """.envファイルが存在しない場合に初期化する"""
     dotenv_path = find_dotenv()
     if not dotenv_path:
         with open(".env", "w") as f:
@@ -451,15 +450,15 @@ def init_env_file():
 
 
 def load_env_vars():
-    """Load environment variables and return as dictionary format
+    """環境変数を読み込み、辞書形式で返す
 
-    Returns:
-        dict: Environment variable dictionary, each value is a tuple containing value and source (value, source)
+    戻り値:
+        dict: 環境変数辞書、各値は値とソースを含むタプル（value, source）
     """
     dotenv_path = init_env_file()
     load_dotenv(dotenv_path, override=True)
 
-    # Read environment variables from .env file
+    # .envファイルから環境変数を読み込む
     env_file_vars = {}
     with open(dotenv_path, "r") as f:
         for line in f:
@@ -469,38 +468,38 @@ def load_env_vars():
                     key, value = line.split("=", 1)
                     env_file_vars[key.strip()] = value.strip().strip("\"'")
 
-    # Get from system environment variables
+    # システム環境変数から取得
     system_env_vars = {
         k: v
         for k, v in os.environ.items()
         if k not in env_file_vars and k not in WEB_FRONTEND_ENV_VARS
     }
 
-    # Merge environment variables and mark sources
+    # 環境変数をマージしてソースをマーク
     env_vars = {}
 
-    # Add system environment variables (lowest priority)
+    # システム環境変数を追加（最低優先度）
     for key, value in system_env_vars.items():
-        env_vars[key] = (value, "System")
+        env_vars[key] = (value, "システム")
 
-    # Add .env file environment variables (medium priority)
+    # .envファイル環境変数を追加（中程度の優先度）
     for key, value in env_file_vars.items():
-        env_vars[key] = (value, ".env file")
+        env_vars[key] = (value, ".envファイル")
 
-    # Add frontend configured environment variables (highest priority)
+    # フロントエンドで設定された環境変数を追加（最高優先度）
     for key, value in WEB_FRONTEND_ENV_VARS.items():
-        env_vars[key] = (value, "Frontend configuration")
-        # Ensure operating system environment variables are also updated
+        env_vars[key] = (value, "フロントエンド設定")
+        # オペレーティングシステムの環境変数も更新されていることを確認
         os.environ[key] = value
 
     return env_vars
 
 
 def save_env_vars(env_vars):
-    """Save environment variables to .env file
+    """環境変数を.envファイルに保存
 
-    Args:
-        env_vars: Dictionary, keys are environment variable names, values can be strings or (value, source) tuples
+    引数:
+        env_vars: 辞書、キーは環境変数名、値は文字列または（value, source）タプル
     """
     try:
         dotenv_path = init_env_file()
@@ -519,22 +518,22 @@ def save_env_vars(env_vars):
         # Reload environment variables to ensure they take effect
         load_dotenv(dotenv_path, override=True)
 
-        return True, "Environment variables have been successfully saved!"
+        return True, "環境変数が正常に保存されました！"
     except Exception as e:
-        return False, f"Error saving environment variables: {str(e)}"
+        return False, f"環境変数の保存中にエラーが発生しました: {str(e)}"
 
 
 def add_env_var(key, value, from_frontend=True):
-    """Add or update a single environment variable
+    """単一の環境変数を追加または更新
 
-    Args:
-        key: Environment variable name
-        value: Environment variable value
-        from_frontend: Whether it's from frontend configuration, default is True
+    引数:
+        key: 環境変数名
+        value: 環境変数値
+        from_frontend: フロントエンド設定からかどうか、デフォルトはTrue
     """
     try:
         if not key or not key.strip():
-            return False, "Variable name cannot be empty"
+            return False, "変数名は空にできません"
 
         key = key.strip()
         value = value.strip()
@@ -550,16 +549,16 @@ def add_env_var(key, value, from_frontend=True):
         set_key(dotenv_path, key, value)
         load_dotenv(dotenv_path, override=True)
 
-        return True, f"Environment variable {key} has been successfully added/updated!"
+        return True, f"環境変数 {key} が正常に追加/更新されました！"
     except Exception as e:
-        return False, f"Error adding environment variable: {str(e)}"
+        return False, f"環境変数の追加中にエラーが発生しました: {str(e)}"
 
 
 def delete_env_var(key):
-    """Delete environment variable"""
+    """環境変数を削除"""
     try:
         if not key or not key.strip():
-            return False, "Variable name cannot be empty"
+            return False, "変数名は空にできません"
 
         key = key.strip()
 
@@ -575,21 +574,21 @@ def delete_env_var(key):
         if key in os.environ:
             del os.environ[key]
 
-        return True, f"Environment variable {key} has been successfully deleted!"
+        return True, f"環境変数 {key} が正常に削除されました！"
     except Exception as e:
-        return False, f"Error deleting environment variable: {str(e)}"
+        return False, f"環境変数の削除中にエラーが発生しました: {str(e)}"
 
 
 def is_api_related(key: str) -> bool:
-    """Determine if an environment variable is API-related
+    """環境変数がAPI関連かどうかを判断
 
-    Args:
-        key: Environment variable name
+    引数:
+        key: 環境変数名
 
-    Returns:
-        bool: Whether it's API-related
+    戻り値:
+        bool: API関連かどうか
     """
-    # API-related keywords
+    # API関連キーワード
     api_keywords = [
         "api",
         "key",
@@ -607,18 +606,18 @@ def is_api_related(key: str) -> bool:
         "firecrawl",
     ]
 
-    # Check if it contains API-related keywords (case insensitive)
+    # API関連キーワードが含まれているか確認（大文字小文字を区別しない）
     return any(keyword in key.lower() for keyword in api_keywords)
 
 
 def get_api_guide(key: str) -> str:
-    """Return the corresponding API guide based on the environment variable name
+    """環境変数名に基づいて対応するAPIガイドを返す
 
-    Args:
-        key: Environment variable name
+    引数:
+        key: 環境変数名
 
-    Returns:
-        str: API guide link or description
+    戻り値:
+        str: APIガイドリンクまたは説明
     """
     key_lower = key.lower()
     if "openai" in key_lower:
@@ -640,7 +639,7 @@ def get_api_guide(key: str) -> str:
 
 
 def update_env_table():
-    """Update environment variable table display, only showing API-related environment variables"""
+    """環境変数テーブル表示を更新し、API関連の環境変数のみを表示"""
     env_vars = load_env_vars()
     # Filter out API-related environment variables
     api_env_vars = {k: v for k, v in env_vars.items() if is_api_related(k)}
@@ -651,7 +650,7 @@ def update_env_table():
         guide = get_api_guide(k)
         # If there's a guide link, create a clickable link
         guide_link = (
-            f"<a href='{guide}' target='_blank' class='guide-link'>🔗 Get</a>"
+            f"<a href='{guide}' target='_blank' class='guide-link'>🔗 取得</a>"
             if guide
             else ""
         )
@@ -660,17 +659,17 @@ def update_env_table():
 
 
 def save_env_table_changes(data):
-    """Save changes to the environment variable table
+    """環境変数テーブルへの変更を保存
 
-    Args:
-        data: Dataframe data, possibly a pandas DataFrame object
+    引数:
+        data: データフレームデータ、おそらくpandas DataFrameオブジェクト
 
-    Returns:
-        str: Operation status information, containing HTML-formatted status message
+    戻り値:
+        str: 操作ステータス情報、HTML形式のステータスメッセージを含む
     """
     try:
         logging.info(
-            f"Starting to process environment variable table data, type: {type(data)}"
+            f"環境変数テーブルデータの処理を開始します、タイプ: {type(data)}"
         )
 
         # Get all current environment variables
@@ -683,7 +682,7 @@ def save_env_table_changes(data):
         if isinstance(data, pd.DataFrame):
             # Get column name information
             columns = data.columns.tolist()
-            logging.info(f"DataFrame column names: {columns}")
+            logging.info(f"DataFrameの列名: {columns}")
 
             # Iterate through each row of the DataFrame
             for index, row in data.iterrows():
@@ -698,13 +697,13 @@ def save_env_table_changes(data):
                         key and str(key).strip()
                     ):  # If key name is not empty, add or update
                         logging.info(
-                            f"Processing environment variable: {key} = {value}"
+                            f"環境変数の処理: {key} = {value}"
                         )
                         add_env_var(key, str(value))
                         processed_keys.add(key)
         # Process other formats
         elif isinstance(data, dict):
-            logging.info(f"Dictionary format data keys: {list(data.keys())}")
+            logging.info(f"辞書形式データのキー: {list(data.keys())}")
             # If dictionary format, try different keys
             if "data" in data:
                 rows = data["data"]
@@ -735,8 +734,8 @@ def save_env_table_changes(data):
                         add_env_var(key, str(value))
                         processed_keys.add(key)
         else:
-            logging.error(f"Unknown data format: {type(data)}")
-            return f"❌ Save failed: Unknown data format {type(data)}"
+            logging.error(f"不明なデータ形式: {type(data)}")
+            return f"❌ 保存に失敗しました: 不明なデータ形式 {type(data)}"
 
         # Process deleted variables - check if there are variables in current environment not appearing in the table
         api_related_keys = {k for k in current_env_vars.keys() if is_api_related(k)}
@@ -744,22 +743,22 @@ def save_env_table_changes(data):
 
         # Delete variables no longer in the table
         for key in keys_to_delete:
-            logging.info(f"Deleting environment variable: {key}")
+            logging.info(f"環境変数の削除: {key}")
             delete_env_var(key)
 
-        return "✅ Environment variables have been successfully saved"
+        return "✅ 環境変数が正常に保存されました"
     except Exception as e:
         import traceback
 
         error_details = traceback.format_exc()
-        logging.error(f"Error saving environment variables: {str(e)}\n{error_details}")
-        return f"❌ Save failed: {str(e)}"
+        logging.error(f"環境変数の保存中にエラーが発生しました: {str(e)}\n{error_details}")
+        return f"❌ 保存に失敗しました: {str(e)}"
 
 
 def get_env_var_value(key):
-    """Get the actual value of an environment variable
+    """環境変数の実際の値を取得
 
-    Priority: Frontend configuration > .env file > System environment variables
+    優先順位: フロントエンド設定 > .envファイル > システム環境変数
     """
     # Check frontend configured environment variables
     if key in WEB_FRONTEND_ENV_VARS:
@@ -770,15 +769,15 @@ def get_env_var_value(key):
 
 
 def create_ui():
-    """Create enhanced Gradio interface"""
+    """拡張されたGradioインターフェースを作成"""
 
     def clear_log_file():
-        """Clear log file content"""
+        """ログファイルの内容をクリア"""
         try:
             if LOG_FILE and os.path.exists(LOG_FILE):
                 # Clear log file content instead of deleting the file
                 open(LOG_FILE, "w").close()
-                logging.info("Log file has been cleared")
+                logging.info("ログファイルがクリアされました")
                 # Clear log queue
                 while not LOG_QUEUE.empty():
                     try:
@@ -789,18 +788,18 @@ def create_ui():
             else:
                 return ""
         except Exception as e:
-            logging.error(f"Error clearing log file: {str(e)}")
+            logging.error(f"ログファイルのクリア中にエラーが発生しました: {str(e)}")
             return ""
 
-    # Create a real-time log update function
+    # リアルタイムログ更新関数を作成
     def process_with_live_logs(question, module_name):
-        """Process questions and update logs in real-time"""
+        """質問を処理し、リアルタイムでログを更新"""
         global CURRENT_PROCESS
 
         # Clear log file
         clear_log_file()
 
-        # Create a background thread to process the question
+        # 質問を処理するバックグラウンドスレッドを作成
         result_queue = queue.Queue()
 
         def process_in_background():
@@ -809,23 +808,23 @@ def create_ui():
                 result_queue.put(result)
             except Exception as e:
                 result_queue.put(
-                    (f"Error occurred: {str(e)}", "0", f"❌ Error: {str(e)}")
+                    (f"エラーが発生しました: {str(e)}", "0", f"❌ エラー: {str(e)}")
                 )
 
-        # Start background processing thread
+        # バックグラウンド処理スレッドを開始
         bg_thread = threading.Thread(target=process_in_background)
-        CURRENT_PROCESS = bg_thread  # Record current process
+        CURRENT_PROCESS = bg_thread  # 現在のプロセスを記録
         bg_thread.start()
 
-        # While waiting for processing to complete, update logs once per second
+        # 処理が完了するのを待つ間、1秒ごとにログを更新
         while bg_thread.is_alive():
-            # Update conversation record display
+            # 会話記録表示を更新
             logs2 = get_latest_logs(100, LOG_QUEUE)
 
             # Always update status
             yield (
                 "0",
-                "<span class='status-indicator status-running'></span> Processing...",
+                "<span class='status-indicator status-running'></span> 処理中...",
                 logs2,
             )
 
@@ -840,7 +839,7 @@ def create_ui():
             logs2 = get_latest_logs(100, LOG_QUEUE)
 
             # Set different indicators based on status
-            if "Error" in status:
+            if "エラー" in status:
                 status_with_indicator = (
                     f"<span class='status-indicator status-error'></span> {status}"
                 )
@@ -854,20 +853,20 @@ def create_ui():
             logs2 = get_latest_logs(100, LOG_QUEUE)
             yield (
                 "0",
-                "<span class='status-indicator status-error'></span> Terminated",
+                "<span class='status-indicator status-error'></span> 終了しました",
                 logs2,
             )
 
     with gr.Blocks(title="OWL", theme=gr.themes.Soft(primary_hue="blue")) as app:
         gr.Markdown(
             """
-                # 🦉 OWL Multi-Agent Collaboration System
+                # 🦉 OWL マルチエージェント協力システム
 
-                Advanced multi-agent collaboration system developed based on the CAMEL framework, designed to solve complex problems through agent collaboration.
+                CAMELフレームワークをベースに開発された高度なマルチエージェント協力システムで、エージェント協力を通じて複雑な問題を解決するように設計されています。
 
-                Models and tools can be customized by modifying local scripts.
+                モデルやツールはローカルスクリプトを変更することでカスタマイズできます。
                 
-                This web app is currently in beta development. It is provided for demonstration and testing purposes only and is not yet recommended for production use.
+                このウェブアプリは現在ベータ開発中です。デモンストレーションとテスト目的のみで提供されており、本番環境での使用はまだ推奨されていません。
                 """
         )
 
@@ -1080,11 +1079,11 @@ def create_ui():
             with gr.Column(scale=0.5):
                 question_input = gr.Textbox(
                     lines=5,
-                    placeholder="Please enter your question...",
-                    label="Question",
+                    placeholder="質問を入力してください...",
+                    label="質問",
                     elem_id="question_input",
                     show_copy_button=True,
-                    value="Open Google search, summarize the github stars, fork counts, etc. of camel-ai's camel framework, and write the numbers into a python file using the plot package, save it locally, and run the generated python file.",
+                    value="Googleで検索して、camel-aiのcamelフレームワークのGitHubスター数、フォーク数などを要約し、その数値をplotパッケージを使ってPythonファイルに書き込み、ローカルに保存して、生成したPythonファイルを実行してください。",
                 )
 
                 # Enhanced module selection dropdown
@@ -1092,73 +1091,73 @@ def create_ui():
                 module_dropdown = gr.Dropdown(
                     choices=list(MODULE_DESCRIPTIONS.keys()),
                     value="run",
-                    label="Select Function Module",
+                    label="機能モジュールを選択",
                     interactive=True,
                 )
 
                 # Module description text box
                 module_description = gr.Textbox(
                     value=MODULE_DESCRIPTIONS["run"],
-                    label="Module Description",
+                    label="モジュールの説明",
                     interactive=False,
                     elem_classes="module-info",
                 )
 
                 with gr.Row():
                     run_button = gr.Button(
-                        "Run", variant="primary", elem_classes="primary"
+                        "実行", variant="primary", elem_classes="primary"
                     )
 
                 status_output = gr.HTML(
-                    value="<span class='status-indicator status-success'></span> Ready",
-                    label="Status",
+                    value="<span class='status-indicator status-success'></span> 準備完了",
+                    label="ステータス",
                 )
                 token_count_output = gr.Textbox(
-                    label="Token Count", interactive=False, elem_classes="token-count"
+                    label="トークン数", interactive=False, elem_classes="token-count"
                 )
 
                 # Example questions
                 examples = [
-                    "Open Google search, summarize the github stars, fork counts, etc. of camel-ai's camel framework, and write the numbers into a python file using the plot package, save it locally, and run the generated python file.",
-                    "Browse Amazon and find a product that is attractive to programmers. Please provide the product name and price",
-                    "Write a hello world python file and save it locally",
+                    "Googleで検索して、camel-aiのcamelフレームワークのGitHubスター数、フォーク数などを要約し、その数値をplotパッケージを使ってPythonファイルに書き込み、ローカルに保存して、生成したPythonファイルを実行してください。",
+                    "Amazonを閲覧して、プログラマーに魅力的な商品を見つけてください。商品名と価格を提供してください",
+                    "Hello worldを表示するPythonファイルを作成し、ローカルに保存してください",
                 ]
 
                 gr.Examples(examples=examples, inputs=question_input)
 
                 gr.HTML("""
                         <div class="footer" id="about">
-                            <h3>About OWL Multi-Agent Collaboration System</h3>
-                            <p>OWL is an advanced multi-agent collaboration system developed based on the CAMEL framework, designed to solve complex problems through agent collaboration.</p>
-                            <p>© 2025 CAMEL-AI.org. Based on Apache License 2.0 open source license</p>
+                            <h3>OWLマルチエージェント協力システムについて</h3>
+                            <p>OWLはCAMELフレームワークをベースに開発された高度なマルチエージェント協力システムで、エージェント協力を通じて複雑な問題を解決するように設計されています。</p>
+                            <p>© 2025 CAMEL-AI.org. Apache License 2.0オープンソースライセンスに基づいています</p>
                             <p><a href="https://github.com/camel-ai/owl" target="_blank">GitHub</a></p>
                         </div>
                     """)
 
             with gr.Tabs():  # Set conversation record as the default selected tab
-                with gr.TabItem("Conversation Record"):
+                with gr.TabItem("会話記録"):
                     # Add conversation record display area
                     with gr.Box():
                         log_display2 = gr.Markdown(
-                            value="No conversation records yet.",
+                            value="まだ会話記録はありません。",
                             elem_classes="log-display",
                         )
 
                     with gr.Row():
-                        refresh_logs_button2 = gr.Button("Refresh Record")
+                        refresh_logs_button2 = gr.Button("記録を更新")
                         auto_refresh_checkbox2 = gr.Checkbox(
-                            label="Auto Refresh", value=True, interactive=True
+                            label="自動更新", value=True, interactive=True
                         )
                         clear_logs_button2 = gr.Button(
-                            "Clear Record", variant="secondary"
+                            "記録をクリア", variant="secondary"
                         )
 
-                with gr.TabItem("Environment Variable Management", id="env-settings"):
+                with gr.TabItem("環境変数管理", id="env-settings"):
                     with gr.Box(elem_classes="env-manager-container"):
                         gr.Markdown("""
-                            ## Environment Variable Management
+                            ## 環境変数管理
                             
-                            Set model API keys and other service credentials here. This information will be saved in a local `.env` file, ensuring your API keys are securely stored and not uploaded to the network. Correctly setting API keys is crucial for the functionality of the OWL system. Environment variables can be flexibly configured according to tool requirements.
+                            ここでモデルAPIキーやその他のサービス認証情報を設定します。この情報はローカルの`.env`ファイルに保存され、APIキーが安全に保存され、ネットワークにアップロードされないことを保証します。APIキーを正しく設定することは、OWLシステムの機能にとって非常に重要です。環境変数はツールの要件に応じて柔軟に設定できます。
                             """)
 
                         # Main content divided into two-column layout
@@ -1169,16 +1168,16 @@ def create_ui():
                                     # Environment variable table - set to interactive for direct editing
                                     gr.Markdown("""
                                     <div style="background-color: #e7f3fe; border-left: 6px solid #2196F3; padding: 10px; margin: 15px 0; border-radius: 4px;">
-                                      <strong>Tip:</strong> Please make sure to run cp .env_template .env to create a local .env file, and flexibly configure the required environment variables according to the running module
+                                      <strong>ヒント:</strong> cp .env_template .env を実行してローカルの.envファイルを作成し、実行モジュールに応じて必要な環境変数を柔軟に設定してください
                                     </div>
                                     """)
 
                                     # Enhanced environment variable table, supporting adding and deleting rows
                                     env_table = gr.Dataframe(
                                         headers=[
-                                            "Variable Name",
-                                            "Value",
-                                            "Retrieval Guide",
+                                            "変数名",
+                                            "値",
+                                            "取得ガイド",
                                         ],
                                         datatype=[
                                             "str",
@@ -1188,7 +1187,7 @@ def create_ui():
                                         row_count=10,  # Increase row count to allow adding new variables
                                         col_count=(3, "fixed"),
                                         value=update_env_table,
-                                        label="API Keys and Environment Variables",
+                                        label="APIキーと環境変数",
                                         interactive=True,  # Set as interactive, allowing direct editing
                                         elem_classes="env-table",
                                     )
@@ -1197,12 +1196,12 @@ def create_ui():
                                     gr.Markdown(
                                         """
                                     <div style="background-color: #fff3cd; border-left: 6px solid #ffc107; padding: 10px; margin: 15px 0; border-radius: 4px;">
-                                    <strong>Operation Guide</strong>:
+                                    <strong>操作ガイド</strong>:
                                     <ul style="margin-top: 8px; margin-bottom: 8px;">
-                                      <li><strong>Edit Variable</strong>: Click directly on the "Value" cell in the table to edit</li>
-                                      <li><strong>Add Variable</strong>: Enter a new variable name and value in a blank row</li>
-                                      <li><strong>Delete Variable</strong>: Clear the variable name to delete that row</li>
-                                      <li><strong>Get API Key</strong>: Click on the link in the "Retrieval Guide" column to get the corresponding API key</li>
+                                      <li><strong>変数の編集</strong>: テーブルの「値」セルを直接クリックして編集</li>
+                                      <li><strong>変数の追加</strong>: 空白行に新しい変数名と値を入力</li>
+                                      <li><strong>変数の削除</strong>: 変数名をクリアしてその行を削除</li>
+                                      <li><strong>APIキーの取得</strong>: 「取得ガイド」列のリンクをクリックして対応するAPIキーを取得</li>
                                     </ul>
                                     </div>
                                     """,
@@ -1212,22 +1211,22 @@ def create_ui():
                                     # Environment variable operation buttons
                                     with gr.Row(elem_classes="env-buttons"):
                                         save_env_button = gr.Button(
-                                            "💾 Save Changes",
+                                            "💾 変更を保存",
                                             variant="primary",
                                             elem_classes="env-button",
                                         )
                                         refresh_button = gr.Button(
-                                            "🔄 Refresh List", elem_classes="env-button"
+                                            "🔄 リストを更新", elem_classes="env-button"
                                         )
 
                                     # Status display
                                     env_status = gr.HTML(
-                                        label="Operation Status",
+                                        label="操作ステータス",
                                         value="",
                                         elem_classes="env-status",
                                     )
 
-                    # 连接事件处理函数
+                    # 連接事件処理函数
                     save_env_button.click(
                         fn=save_env_table_changes,
                         inputs=[env_table],
@@ -1275,39 +1274,39 @@ def create_ui():
     return app
 
 
-# Main function
+# メイン関数
 def main():
     try:
-        # Initialize logging system
+        # ロギングシステムを初期化
         global LOG_FILE
         LOG_FILE = setup_logging()
-        logging.info("OWL Web application started")
+        logging.info("OWL Webアプリケーションが開始されました")
 
-        # Start log reading thread
+        # ログ読み取りスレッドを開始
         log_thread = threading.Thread(
             target=log_reader_thread, args=(LOG_FILE,), daemon=True
         )
         log_thread.start()
-        logging.info("Log reading thread started")
+        logging.info("ログ読み取りスレッドが開始されました")
 
-        # Initialize .env file (if it doesn't exist)
+        # .envファイルを初期化（存在しない場合）
         init_env_file()
         app = create_ui()
 
         app.queue()
         app.launch(share=False, favicon_path="../assets/owl-favicon.ico")
     except Exception as e:
-        logging.error(f"Error occurred while starting the application: {str(e)}")
-        print(f"Error occurred while starting the application: {str(e)}")
+        logging.error(f"アプリケーションの起動中にエラーが発生しました: {str(e)}")
+        print(f"アプリケーションの起動中にエラーが発生しました: {str(e)}")
         import traceback
 
         traceback.print_exc()
 
     finally:
-        # Ensure log thread stops
+        # ログスレッドが停止することを確認
         STOP_LOG_THREAD.set()
         STOP_REQUESTED.set()
-        logging.info("Application closed")
+        logging.info("アプリケーションが終了しました")
 
 
 if __name__ == "__main__":
