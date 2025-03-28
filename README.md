@@ -126,10 +126,12 @@ Our vision is to revolutionize how AI agents collaborate to solve real-world tas
   </p>
 </div>
 
-- **[2025.03.26]**: Supported Gemini 2.5 Pro, added example run code
-- **[2025.03.21]**: Integrated OpenRouter model platform, fix bug with Gemini tool calling
-- **[2025.03.20]**: Accept header in MCP Toolkit, support automatic playwright installation
-- **[2025.03.16]**: Support Bing search, Baidu search
+- **[2025.03.27]**: Integrate SearxNGToolkit performing web searches using SearxNG search engine.
+- **[2025.03.26]**: Enhanced Browser Toolkit with multi-browser support for "chrome", "msedge", and "chromium" channels.
+- **[2025.03.25]**: Supported Gemini 2.5 Pro, added example run code
+- **[2025.03.21]**: Integrated OpenRouter model platform, fix bug with Gemini tool calling.
+- **[2025.03.20]**: Accept header in MCP Toolkit, support automatic playwright installation.
+- **[2025.03.16]**: Support Bing search, Baidu search.
 - **[2025.03.12]**: Added Bocha search in SearchToolkit, integrated Volcano Engine model platform, and enhanced Azure and OpenAI Compatible models with structured output and tool calling.
 - **[2025.03.11]**: We added MCPToolkit, FileWriteToolkit, and TerminalToolkit to enhance OWL agents with MCP tool calling, file writing capabilities, and terminal command execution.
 - **[2025.03.09]**: We added a web-based user interface that makes it easier to interact with the system.
