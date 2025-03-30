@@ -1,6 +1,6 @@
 # 📈 Stock Analysis Agent
 
-[简体中文](README.md) | English
+[简体中文](README-zh.md) | English
 
 <p>
 	<p align="center">
@@ -13,8 +13,8 @@
 <p align="center">
 <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-blue"/>
 <img alt="DeepSeek" src="https://img.shields.io/badge/DeepSeek-V3-blue"/>
-<img alt="LangChain" src="https://img.shields.io/badge/Camelai-0.2.35-yellowgreen"/>
-<img alt="LangGraph" src="https://img.shields.io/badge/OWL-0.0.1+-yellow"/>
+<img alt="Camelai" src="https://img.shields.io/badge/Camelai-0.2.35-yellowgreen"/>
+<img alt="OLW" src="https://img.shields.io/badge/OWL-0.0.1+-yellow"/>
 <img alt="license" src="https://img.shields.io/badge/license-MIT-lightgrey"/>
 </p>
 
