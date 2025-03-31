@@ -8,7 +8,7 @@ This project uses **Owl** for data analysis and visualization.
 - Provides both English and Chinese versions of the raw data and prompts
 - Utilizes **CodeExecutionToolkit**, **ExcelToolkit**, and **FileWriteToolkit** to complete related tasks  
 - Implements **ExcelRolePlaying** based on **OwlRolePlaying**, which overrides the `system_prompt` with a cleaner, more focused version tailored for data analysis scenarios  
-- 
+- tested using `gpt-4o` and `deepseek-v3`
 - The analysis and visualization of this Excel file involve:
     - Complex headers (merged rows)
     - Nan value handling
