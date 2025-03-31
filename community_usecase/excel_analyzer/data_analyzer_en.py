@@ -195,12 +195,6 @@ def construct_society(question: str) -> ExcelRolePalying:
         OwlRolePlaying: A configured society of agents ready to address the question.
     """
 
-    # base_model_config = {
-    #     "model_platform": ModelPlatformType.DEEPSEEK,
-    #     "model_type": 'deepseek-chat',
-    #     "model_config_dict": ChatGPTConfig(temperature=0.1, max_tokens=8192).as_dict(),
-    # }
-
     # Create models for different components using Azure OpenAI
     base_model_config = {
         "model_platform": ModelPlatformType.AZURE,
@@ -245,12 +239,12 @@ def construct_society(question: str) -> ExcelRolePalying:
 
 
 def main():
-    r"""Main function to run the OWL system with Azure OpenAI."""
     # Example question
 
-
-    default_task = "Please help analyze the number of admitted students, as well as the highest and lowest scores for each college in this file. Visualize this information in a single chart and save it in the current directory. The file path is `./data/admission_en.xlsx.`"
-
+    default_task = """Please help analyze the file `./data/admission_en.xlsx` by:
+            - Calculating the number of admitted students, as well as the highest and lowest scores for each college
+            - Plotting this information in a single chart: use a bar chart for the number of admitted students, and line charts for the highest and lowest scores
+            - Saving the generated chart as `vis_en.png` in the current directory"""
 
     set_log_file('log.txt')
 

@@ -134,11 +134,10 @@ import pandas as pd
 - 始终验证你的最终答案是否正确！  
 - 请每次都从头开始编写完整代码，编写代码后，务必运行代码并获取结果！  
   如果遇到错误，尝试调试代码。  
-  请注意，代码执行环境不支持交互式输入。  
 - 如果工具运行失败，或者代码无法正确运行，  
   绝对不要假设其返回了正确结果，并在此基础上继续推理！  
   正确的做法是分析错误原因，并尝试修正！  
-- 如果你写的代码涉及到用matplotlib画图，请始终在代码开头下面这段代码：
+- [重要！！！]如果你写的代码涉及到用matplotlib画图，请始终在代码开头下面这段代码：
 ```
 import matplotlib
 matplotlib.rcParams['font.sans-serif'] = ['SimHei']  # 支持中文
@@ -232,18 +231,18 @@ def construct_society(question: str) -> ExcelRolePalying:
         OwlRolePlaying: A configured society of agents ready to address the question.
     """
 
-    # base_model_config = {
-    #     "model_platform": ModelPlatformType.DEEPSEEK,
-    #     "model_type": 'deepseek-chat',
-    #     "model_config_dict": ChatGPTConfig(temperature=0.1, max_tokens=8192).as_dict(),
-    # }
+    base_model_config = {
+        "model_platform": ModelPlatformType.DEEPSEEK,
+        "model_type": 'deepseek-chat',
+        "model_config_dict": ChatGPTConfig(temperature=0.1, max_tokens=8192).as_dict(),
+    }
 
     # Create models for different components using Azure OpenAI
-    base_model_config = {
-        "model_platform": ModelPlatformType.AZURE,
-        "model_type": os.getenv("AZURE_OPENAI_MODEL_TYPE"),
-        "model_config_dict": ChatGPTConfig(temperature=0.4, max_tokens=4096).as_dict(),
-    }
+    # base_model_config = {
+    #     "model_platform": ModelPlatformType.AZURE,
+    #     "model_type": os.getenv("AZURE_OPENAI_MODEL_TYPE"),
+    #     "model_config_dict": ChatGPTConfig(temperature=0.4, max_tokens=4096).as_dict(),
+    # }
 
 
     models = {
@@ -284,7 +283,13 @@ def construct_society(question: str) -> ExcelRolePalying:
 def main():
     r"""Main function to run the OWL system with Azure OpenAI."""
     # Example question
-    default_task = "帮忙分析一下这个文件中各个学院的录取人数以及最高分最低分，把这些信息画到一张图上，并存到当前目录下。文件路径是`./data/admission_zh.xlsx`"
+    # default_task = """帮忙分析一下这个文件中各个学院的录取人数以及最高分最低分，把这些信息画到一张图上，并存到当前路径下。文件路径是`./data/admission_zh.xlsx`"""
+
+    default_task = """帮忙分析一下`./data/admission_zh.xlsx`这个文件，请你：
+    - 统计各个学院的录取人数以及最高分最低分
+    - 把这些信息画到一张图上，录取人数使用柱状图，最高分最低分使用折线图
+    - 把画完的图`vis_zh.png`存到当前目录下"""
+
 
     set_log_file('log.txt')
 
