@@ -1,4 +1,6 @@
 # Excel Analyzer  
+[中文](README_zh.md)
+
 This project uses **Owl** for data analysis and visualization.
 
 ## Features
