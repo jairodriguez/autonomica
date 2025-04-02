@@ -64,5 +64,5 @@ ignore_missing_imports = true
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
 skip = '.git*,*.pdf,*.lock'
 check-hidden = true
-# ignore-regex = ''
-# ignore-words-list = ''
+ignore-regex = '\bBrin\b'
+ignore-words-list = 'datas'
