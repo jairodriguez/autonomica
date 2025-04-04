@@ -621,7 +621,7 @@ python examples/run_gaia_roleplaying.py
 
 加入我们，参与更多讨论！
 
-![](./assets/community.jpg)
+![](./assets/community.jpeg)
 
 # ❓ 常见问题
 

@@ -624,7 +624,7 @@ OWLのGAIAベンチマークスコア58.18を再現するには：
 
 さらなる議論に参加してください！
 <!-- ![](./assets/community.png) -->
-![](./assets/community.jpg)
+![](./assets/community.jpeg)
 
 # ❓ FAQ
 
