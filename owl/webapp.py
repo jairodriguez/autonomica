@@ -254,6 +254,7 @@ MODULE_DESCRIPTIONS = {
     "run_azure_openai": "Using azure openai model to process tasks",
     "run_groq": "Using groq model to process tasks",
     "run_ppio": "Using ppio model to process tasks",
+    "run_together_ai": "Using together ai model to process tasks",
 }
 
 
@@ -1142,7 +1143,7 @@ def create_ui():
             with gr.Tabs():  # Set conversation record as the default selected tab
                 with gr.TabItem("Conversation Record"):
                     # Add conversation record display area
-                    with gr.Box():
+                    with gr.Group():
                         log_display2 = gr.Markdown(
                             value="No conversation records yet.",
                             elem_classes="log-display",
@@ -1158,7 +1159,7 @@ def create_ui():
                         )
 
                 with gr.TabItem("Environment Variable Management", id="env-settings"):
-                    with gr.Box(elem_classes="env-manager-container"):
+                    with gr.Group(elem_classes="env-manager-container"):
                         gr.Markdown("""
                             ## Environment Variable Management
                             
@@ -1169,7 +1170,7 @@ def create_ui():
                         with gr.Row():
                             # Left column: Environment variable management controls
                             with gr.Column(scale=3):
-                                with gr.Box(elem_classes="env-controls"):
+                                with gr.Group(elem_classes="env-controls"):
                                     # Environment variable table - set to interactive for direct editing
                                     gr.Markdown("""
                                     <div style="background-color: #e7f3fe; border-left: 6px solid #2196F3; padding: 10px; margin: 15px 0; border-radius: 4px;">
@@ -1299,7 +1300,7 @@ def main():
         app = create_ui()
 
         app.queue()
-        app.launch(share=False, favicon_path="../assets/owl-favicon.ico")
+        app.launch(share=False, favicon_path=os.path.join(os.path.dirname(__file__), "assets", "owl-favicon.ico"))
     except Exception as e:
         logging.error(f"Error occurred while starting the application: {str(e)}")
         print(f"Error occurred while starting the application: {str(e)}")

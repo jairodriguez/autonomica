@@ -81,22 +81,6 @@
 # 🔥 ニュース
 
 
-<div align="center" style="background-color: #fffacd; padding: 15px; border-radius: 10px; border: 2px solid #ffd700; margin: 20px 0;">
-  <h3 style="color: #d81b60; margin: 0; font-size: 1.3em;">
-    🌟🌟🌟 <b>コミュニティ用ケースの募集！</b> 🌟🌟🌟
-  </h3>
-  <p style="font-size: 1.1em; margin: 10px 0;">
-    コミュニティにOWLの革新的なユースケースを提供してもらうための招待です！ <br>
-    <b>トップ10の提出物</b>には特別なコミュニティギフトと認識が与えられます。
-  </p>
-  <p>
-    <a href="https://github.com/camel-ai/owl/tree/main/community_usecase/COMMUNITY_CALL_FOR_USE_CASES.md" style="background-color: #d81b60; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">詳細と提出</a>
-  </p>
-  <p style="margin: 5px 0;">
-    提出期限：<b>2025年3月31日</b>
-  </p>
-</div>
-
 <div align="center" style="background-color: #e8f5e9; padding: 15px; border-radius: 10px; border: 2px solid #4caf50; margin: 20px 0;">
   <h3 style="color: #2e7d32; margin: 0; font-size: 1.3em;">
     🧩 <b>新機能：コミュニティエージェントチャレンジ！</b> 🧩
