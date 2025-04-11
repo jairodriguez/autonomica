@@ -1300,7 +1300,12 @@ def main():
         app = create_ui()
 
         app.queue()
-        app.launch(share=False, favicon_path=os.path.join(os.path.dirname(__file__), "assets", "owl-favicon.ico"))
+        app.launch(
+            share=False,
+            favicon_path=os.path.join(
+                os.path.dirname(__file__), "assets", "owl-favicon.ico"
+            ),
+        )
     except Exception as e:
         logging.error(f"Error occurred while starting the application: {str(e)}")
         print(f"Error occurred while starting the application: {str(e)}")

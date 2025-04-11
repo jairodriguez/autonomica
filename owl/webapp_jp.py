@@ -252,7 +252,7 @@ MODULE_DESCRIPTIONS = {
     "run_qwen_zh": "qwenモデルを使用して中国語タスクを処理します",
     "run_azure_openai": "Azure OpenAIモデルを使用してタスクを処理します",
     "run_groq": "groqモデルを使用してタスクを処理します",
-    "run_together_ai": "together aiモデルを使用してタスクを処理します"   
+    "run_together_ai": "together aiモデルを使用してタスクを処理します",
 }
 
 
@@ -1296,7 +1296,12 @@ def main():
         app = create_ui()
 
         app.queue()
-        app.launch(share=False, favicon_path=os.path.join(os.path.dirname(__file__), "assets", "owl-favicon.ico"))
+        app.launch(
+            share=False,
+            favicon_path=os.path.join(
+                os.path.dirname(__file__), "assets", "owl-favicon.ico"
+            ),
+        )
     except Exception as e:
         logging.error(f"アプリケーションの起動中にエラーが発生しました: {str(e)}")
         print(f"アプリケーションの起動中にエラーが発生しました: {str(e)}")
