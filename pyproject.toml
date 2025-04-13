@@ -27,6 +27,7 @@ dependencies = [
     "gradio>=3.50.2",
     "mcp-simple-arxiv==0.2.2",
     "mcp-server-fetch==2025.1.17",
+    "xmltodict>=0.14.2",
 ]
 
 [project.urls]
