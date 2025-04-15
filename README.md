@@ -613,11 +613,13 @@ We welcome contributions from the community! Here's how you can help:
 3. Submit pull requests with your improvements
 
 **Current Issues Open for Contribution:**
-- [#362](https://github.com/camel-ai/owl/issues/362)
-- [#1945](https://github.com/camel-ai/camel/issues/1945)
-- [#1925](https://github.com/camel-ai/camel/issues/1925)
 - [#1915](https://github.com/camel-ai/camel/issues/1915)
-- [#1970](https://github.com/camel-ai/camel/issues/1970)
+- [#2190](https://github.com/camel-ai/camel/issues/2190)
+- [#2165](https://github.com/camel-ai/camel/issues/2165)
+- [#2121](https://github.com/camel-ai/camel/issues/2121)
+- [#1908](https://github.com/camel-ai/camel/issues/1908)
+- [#1538](https://github.com/camel-ai/camel/issues/1538)
+- [#1481](https://github.com/camel-ai/camel/issues/1481)
 
 To take on an issue, simply leave a comment stating your interest.
 

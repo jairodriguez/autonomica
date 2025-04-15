@@ -595,10 +595,13 @@ OWLのGAIAベンチマークスコア58.18を再現するには：
 3. 改善点を含むプルリクエストを提出する
 
 **現在貢献を受け付けている問題：**
-- [#362](https://github.com/camel-ai/owl/issues/362)
-- [#1945](https://github.com/camel-ai/camel/issues/1945)
-- [#1925](https://github.com/camel-ai/camel/issues/1925)
 - [#1915](https://github.com/camel-ai/camel/issues/1915)
+- [#2190](https://github.com/camel-ai/camel/issues/2190)
+- [#2165](https://github.com/camel-ai/camel/issues/2165)
+- [#2121](https://github.com/camel-ai/camel/issues/2121)
+- [#1908](https://github.com/camel-ai/camel/issues/1908)
+- [#1538](https://github.com/camel-ai/camel/issues/1538)
+- [#1481](https://github.com/camel-ai/camel/issues/1481)
 
 
 問題を引き受けるには、興味を示すコメントを残すだけです。
