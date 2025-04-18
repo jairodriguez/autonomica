@@ -598,11 +598,10 @@ If you find this repo useful, please cite:
 
 ```
 @misc{owl2025,
-  title        = {OWL: Optimized Workforce Learning for General Multi-Agent Assistance in Real-World Task Automation},
-  author       = {{CAMEL-AI.org}},
-  howpublished = {\url{https://github.com/camel-ai/owl}},
-  note         = {Accessed: 2025-03-07},
-  year         = {2025}
+  title={OWL: Optimized Workforce Learning for General Multi-Agent Assistance in Real-World Task Automation},
+  author={Mengkang Hu, Yuhang Zhou, Wendong Fan, Yuzhou Nie, Bowei Xia, Tao Sun, Ziyu Ye, Zhaoxuan Jin, Yingru Li, Zeyu Zhang, Yifeng Wang, Qianshuo Ye, Ping Luo, Guohao Li},
+  url={https://github.com/camel-ai/owl},
+  year={2025}
 }
 ```
 
