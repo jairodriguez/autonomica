@@ -4,7 +4,7 @@ This project demonstrates the integration of Notion with OWL (Optimized Workforc
 
 ## Prerequisites
 
-- Python 3.10+
+- Python >=3.10,<3.13
 - Node.js and npm
 - CAMEL framework installed
 - A Notion account and integration

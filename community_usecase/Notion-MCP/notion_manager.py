@@ -9,12 +9,13 @@ from dotenv import load_dotenv
 from camel.models import ModelFactory
 from camel.toolkits import FunctionTool, MCPToolkit
 from camel.types import ModelPlatformType, ModelType
-from camel.logger import set_log_level
+from camel.logger import get_logger, set_log_file
 
 from owl.utils.enhanced_role_playing import OwlRolePlaying, arun_society
 
 # Set logging level
-set_log_level(level="INFO")
+set_log_file("notion_mcp.log")
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '../../owl/.env'))
@@ -67,13 +68,13 @@ async def execute_notion_task(society: OwlRolePlaying):
         
         if isinstance(result, tuple) and len(result) == 3:
             answer, chat_history, token_count = result
-            print(f"\nTask Result: {answer}")
-            print(f"Token count: {token_count}")
+            logger.info(f"\nTask Result: {answer}")
+            logger.info(f"Token count: {token_count}")
         else:
-            print(f"\nTask Result: {result}")
+            logger.info(f"\nTask Result: {result}")
             
     except Exception as e:
-        print(f"\nError during task execution: {str(e)}")
+        logger.info(f"\nError during task execution: {str(e)}")
         raise
 
 async def main():
@@ -81,9 +82,9 @@ async def main():
     mcp_toolkit = MCPToolkit(config_path=str(config_path))
 
     try:
-        print("Connecting to Notion MCP server...")
+        logger.info("Connecting to Notion MCP server...")
         await mcp_toolkit.connect()
-        print("Successfully connected to Notion MCP server")
+        logger.info("Successfully connected to Notion MCP server")
 
         default_task = (
 
@@ -95,7 +96,7 @@ async def main():
         )
 
         task = sys.argv[1] if len(sys.argv) > 1 else default_task
-        print(f"\nExecuting task:\n{task}")
+        logger.info(f"\nExecuting task:\n{task}")
 
         tools = [*mcp_toolkit.get_tools()]
         society = await construct_society(task, tools)
@@ -103,11 +104,11 @@ async def main():
         await execute_notion_task(society)
 
     except Exception as e:
-        print(f"\nError: {str(e)}")
+        logger.info(f"\nError: {str(e)}")
         raise
 
     finally:
-        print("\nPerforming cleanup...")
+        logger.info("\nPerforming cleanup...")
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         for task in tasks:
             task.cancel()
@@ -118,15 +119,15 @@ async def main():
         
         try:
             await mcp_toolkit.disconnect()
-            print("Successfully disconnected from Notion MCP server")
+            logger.info("Successfully disconnected from Notion MCP server")
         except Exception as e:
-            print(f"Cleanup error (can be ignored): {e}")
+            logger.info(f"Cleanup error (can be ignored): {e}")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nReceived keyboard interrupt. Shutting down gracefully...")
+        logger.info("\nReceived keyboard interrupt. Shutting down gracefully...")
     finally:
         if sys.platform == 'win32':
             try:
