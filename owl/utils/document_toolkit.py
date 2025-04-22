@@ -117,8 +117,19 @@ class DocumentProcessingToolkit(BaseToolkit):
                 return True, content
 
         if self._is_webpage(document_path):
-            extracted_text = self._extract_webpage_content(document_path)
-            return True, extracted_text
+            try:
+                extracted_text = self._extract_webpage_content(document_path)
+                return True, extracted_text
+            except Exception:
+                try:
+                    elements = self.uio.parse_file_or_url(document_path)
+                    if elements is None:
+                        logger.error(f"Failed to parse the document: {document_path}.")
+                        return False, f"Failed to parse the document: {document_path}."
+                    else:
+                        return True, elements
+                except Exception:
+                    return False, "Failed to extract content from the webpage."
 
         else:
             try:
