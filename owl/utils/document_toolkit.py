@@ -127,7 +127,9 @@ class DocumentProcessingToolkit(BaseToolkit):
                         logger.error(f"Failed to parse the document: {document_path}.")
                         return False, f"Failed to parse the document: {document_path}."
                     else:
-                        return True, elements
+                        # Convert elements list to string
+                        elements_str = "\n".join(str(element) for element in elements)
+                        return True, elements_str
                 except Exception:
                     return False, "Failed to extract content from the webpage."
 
@@ -138,7 +140,9 @@ class DocumentProcessingToolkit(BaseToolkit):
                     logger.error(f"Failed to parse the document: {document_path}.")
                     return False, f"Failed to parse the document: {document_path}."
                 else:
-                    return True, elements
+                    # Convert elements list to string
+                    elements_str = "\n".join(str(element) for element in elements)
+                    return True, elements_str
 
             except Exception as e:
                 logger.error(traceback.format_exc())
