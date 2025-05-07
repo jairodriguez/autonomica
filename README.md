@@ -688,6 +688,18 @@ A: OWL supports Python 3.10, 3.11, and 3.12.
 
 A: See our [Contributing](#-contributing) section for details on how to get involved. We welcome contributions of all kinds, from code improvements to documentation updates.
 
+## Experiment Questions
+
+**Q: Which CAMEL version should I use for replicate the role playing result?**
+
+A: We provide a modified version of CAMEL (owl/camel) in the gaia58.18 branch. Please make sure you use this CAMEL version for your experiments.
+
+**Q: Why are my experiment results lower than the reported numbers?**
+
+A: Since the GAIA benchmark evaluates LLM agents in a realistic world, it introduces a significant amount of randomness. Based on user feedback, one of the most common issues for replication is, for example, agents being blocked on certain webpages due to network reasons.
+We have uploaded a keywords matching script to help quickly filter out these errors [here](https://github.com/camel-ai/owl/blob/gaia58.18/owl/filter_failed_cases.py).
+You can also check this [technical report](https://hypnotic-mind-6bd.notion.site/OWL-Optimized-Workforce-Learning-for-General-Multi-Agent-Assistance-in-Real-World-Task-Automation-1d4004aeb21380158749c7f84b20643f?pvs=74) for more details when evaluating LLM agents in realistic open-world environments.
+
 # 📚 Exploring CAMEL Dependency
 
 OWL is built on top of the [CAMEL](https://github.com/camel-ai/camel) Framework, here's how you can explore the CAMEL source code and understand how it works with OWL:
