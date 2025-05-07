@@ -623,10 +623,10 @@ This will execute the same configuration that achieved our top-ranking performan
 
 We're continuously working to improve OWL. Here's what's on our roadmap:
 
-- [ ] Write a technical blog post detailing our exploration and insights in multi-agent collaboration in real-world tasks
-- [ ] Enhance the toolkit ecosystem with more specialized tools for domain-specific tasks
-- [ ] Develop more sophisticated agent interaction patterns and communication protocols
-- [ ] Improve performance on complex multi-step reasoning tasks
+- [x] Write a technical blog post detailing our exploration and insights in multi-agent collaboration in real-world tasks
+- [x] Enhance the toolkit ecosystem with more specialized tools for domain-specific tasks
+- [x] Develop more sophisticated agent interaction patterns and communication protocols
+- [x] Improve performance on complex multi-step reasoning tasks
 
 # 📄 License
 
@@ -673,6 +673,8 @@ Join us for further discussions!
 ![](./assets/community.jpeg)
 
 # ❓ FAQ
+
+## General Questions
 
 **Q: Why don't I see Chrome running locally after starting the example script?**
 
