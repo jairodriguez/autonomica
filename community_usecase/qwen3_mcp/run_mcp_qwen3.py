@@ -267,13 +267,7 @@ async def main():
     
     # Set default task - a simple example query
     default_task = (
-        "Visit the Qwen3 GitHub repository, summarize the introduction of the repository."
-        "Write a comprehensive HTML documentation site with the following features:"
-        "A clear introduction to Qwen3"
-        "Well-organized sections of the technical documentation"
-        "Practical code examples"
-        "A visually appealing purple technology theme (e.g. modern, clean, purple-accented design)"
-        "Finally, deploy the HTML site and open it in the browser."
+        "部署一个网页，显示你好。"
     )
     
     # Use command line argument if provided, otherwise use default task
@@ -308,6 +302,7 @@ async def main():
     except Exception as e:
         print(Fore.RED + f"Error occurred: {e}")
     finally:
+        # 使用单一的方法处理关闭连接
         print(Fore.YELLOW + "Shutting down connections...")
         try:
             await asyncio.wait_for(
