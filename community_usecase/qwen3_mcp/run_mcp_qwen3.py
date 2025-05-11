@@ -27,9 +27,8 @@ from camel.models import ModelFactory
 from camel.toolkits import FunctionTool, MCPToolkit
 from camel.types import ModelPlatformType, ModelType
 from camel.logger import set_log_level
-from camel.utils import print_text_animated
 
-from owl.utils.enhanced_role_playing import OwlRolePlaying, arun_society
+from owl.utils.enhanced_role_playing import OwlRolePlaying
 
 import pathlib
 
@@ -286,7 +285,6 @@ async def main():
         md_filename = create_md_file(task)
         print(Fore.CYAN + f"Conversation will be saved to: {md_filename}")
         
-        # 连接到 SSE 服务器
         await mcp_toolkit.connect()
         print(Fore.GREEN + "Successfully connected to SSE server")
         
