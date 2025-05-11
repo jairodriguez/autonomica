@@ -267,13 +267,18 @@ async def main():
     
     # Set default task - a simple example query
     default_task = (
-        "部署一个网页，显示你好。"
+        "Visit the Qwen3 GitHub repository, summarize the introduction of the repository."
+        "Write a comprehensive HTML documentation site with the following features:"
+        "A clear introduction to Qwen3"
+        "Well-organized sections of the technical documentation"
+        "Practical code examples"
+        "A visually appealing purple technology theme (e.g. modern, clean, purple-accented design)"
+        "Finally, deploy the HTML site and open it in the browser."
     )
     
     # Use command line argument if provided, otherwise use default task
     task = sys.argv[1] if len(sys.argv) > 1 else default_task
     
-    # 创建 MCP 工具包实例
     mcp_toolkit = MCPToolkit(config_path=str(config_path))
     
     try:
@@ -302,7 +307,6 @@ async def main():
     except Exception as e:
         print(Fore.RED + f"Error occurred: {e}")
     finally:
-        # 使用单一的方法处理关闭连接
         print(Fore.YELLOW + "Shutting down connections...")
         try:
             await asyncio.wait_for(
@@ -317,7 +321,6 @@ async def main():
         except Exception as e:
             print(Fore.RED + f"Error during disconnect: {e}")
             
-        # 确保有机会清理
         try:
             await asyncio.sleep(0.5)
         except:
