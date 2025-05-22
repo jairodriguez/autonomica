@@ -29,8 +29,8 @@ A Streamlit app powered by the [CAMEL-AI OWL framework](https://github.com/camel
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/your-org/your-repo.git
-   cd your-repo/owl/community_usecase/Puppeteer-MCP
+   git clone https://github.com/camel-ai/owl.git
+   cd owl/community_usecase/Puppeteer MCP
    ```
 
 2. **Create a virtual environment**
@@ -64,7 +64,7 @@ A Streamlit app powered by the [CAMEL-AI OWL framework](https://github.com/camel
      "mcpServers": {
        "puppeteer": {
          "command": "npx",
-         "args": ["-y", "@your-org/mcp-server-puppeteer"]
+         "args": ["-y", "@modelcontextprotocol/mcp-server-puppeteer"]
        }
      }
    }
@@ -77,7 +77,7 @@ A Streamlit app powered by the [CAMEL-AI OWL framework](https://github.com/camel
 Run the Streamlit app:
 
 ```bash
-streamlit run app.py
+streamlit run demo.py
 ```
 
 This will open the UI in your browser. Enter a natural language task (e.g., “Search for the weather in Paris”) and click **Run Task**.

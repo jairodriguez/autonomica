@@ -88,7 +88,7 @@ def main():
     st.title("OWL X Puppeteer MCP Server")
 
     # Get the task from the user
-    task = st.text_input("Enter your task")
+    task = st.text_input("Enter your task",value="Please find the top articles from dev.to this week and go to each article and then summarize it. Please use MCP given to you")
 
     if st.button("Run Task"):
         if not task.strip():
