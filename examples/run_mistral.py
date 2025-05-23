@@ -82,7 +82,7 @@ from camel.models import ModelFactory
 from camel.toolkits import FunctionTool
 from camel.types import ModelPlatformType, ModelType
 from camel.logger import set_log_level
-from camel.toolkits import MCPToolkit
+from camel.toolkits import MCPToolkit, FileWriteToolkit, CodeExecutionToolkit
 from camel.societies import RolePlaying
 
 from owl.utils.enhanced_role_playing import arun_society
@@ -109,7 +109,7 @@ async def construct_society(
     models = {
         "user": ModelFactory.create(
             model_platform=ModelPlatformType.MISTRAL,
-            model_type=ModelType.MISTRAL_LARGE,
+            model_type=ModelType.MISTRAL_MEDIUM_3,
             model_config_dict={"temperature": 0},
         ),
         "assistant": ModelFactory.create(
@@ -149,17 +149,21 @@ async def main():
 
         # Default task
         default_task = (
-            "I'd like a academic report about Andrew Ng, including "
-            "his research direction, published papers (At least 3), "
-            "institutions, etc. You have been provided with tools to do "
-            "browser operation. Open browser to finish the task."
+            "Help me search the latest reports about smart city, "
+            "summarize them and help me generate a PDF file. You have "
+            "been provided with tools to do browser operation. Open "
+            "browser to finish the task."
         )
 
         # Override default task if command line argument is provided
         task = sys.argv[1] if len(sys.argv) > 1 else default_task
 
-        # Connect to all MCP toolkits
-        tools = [*mcp_toolkit.get_tools()]
+        # Connect to toolkits
+        tools = [
+            *mcp_toolkit.get_tools(),
+            *FileWriteToolkit().get_tools(),
+            *CodeExecutionToolkit().get_tools(),
+        ]
         society = await construct_society(task, tools)
         answer, chat_history, token_count = await arun_society(society)
         print(f"\033[94mAnswer: {answer}\033[0m")
