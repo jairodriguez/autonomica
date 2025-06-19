@@ -1285,11 +1285,106 @@
             "status": "pending"
           }
         ]
+      },
+      {
+        "id": 13,
+        "title": "ChatGPT-like Project Management Interface",
+        "description": "Create a ChatGPT-style project management interface with expandable project folders, agent hierarchies, and real-time status indicators",
+        "details": "Build a modern project management interface that mimics ChatGPT's design patterns:\n- Left sidebar with expandable project folders\n- Agent hierarchies displayed under each project\n- Real-time status indicators (busy/spinning, idle/green, error/red, offline/gray)\n- Individual chat interfaces for each agent\n- Smooth animations and professional styling\n- Responsive design for desktop and mobile\n- Main panel that changes content based on selection",
+        "testStrategy": "Test by running the frontend application and verifying:\n1. Project folders expand/collapse properly\n2. Agent status indicators update in real-time\n3. Individual agent chat interfaces function correctly\n4. UI matches ChatGPT design patterns\n5. Responsive design works on different screen sizes",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Projects Page Route",
+            "description": "Set up the /projects route and page structure in Next.js",
+            "dependencies": [],
+            "details": "Create a new page at /app/projects/page.tsx with the basic layout structure for the project management interface",
+            "status": "done"
+          },
+          {
+            "id": 2,
+            "title": "Build Project Sidebar Component",
+            "description": "Create the left sidebar component with expandable project folders",
+            "dependencies": [
+              1
+            ],
+            "details": "Build ProjectSidebar component with project folders, expandable/collapsible functionality, and proper state management",
+            "status": "pending"
+          },
+          {
+            "id": 3,
+            "title": "Implement Agent Hierarchies",
+            "description": "Add agent lists under each project with status indicators",
+            "dependencies": [
+              2
+            ],
+            "details": "Display agent hierarchies under project folders with visual status indicators (busy/spinning, idle/green, error/red, offline/gray)",
+            "status": "pending"
+          },
+          {
+            "id": 4,
+            "title": "Create Main Panel Component",
+            "description": "Build the main content panel that changes based on selection",
+            "dependencies": [
+              1
+            ],
+            "details": "Create ProjectMainPanel component that displays different content based on what's selected in the sidebar",
+            "status": "pending"
+          },
+          {
+            "id": 5,
+            "title": "Add Real-time Status Updates",
+            "description": "Implement real-time agent status updates and animations",
+            "dependencies": [
+              3
+            ],
+            "details": "Add real-time simulation of agent status changes with smooth transitions and spinning animations",
+            "status": "pending"
+          },
+          {
+            "id": 6,
+            "title": "Build Individual Agent Chat Interfaces",
+            "description": "Create chat interfaces for individual agents",
+            "dependencies": [
+              4
+            ],
+            "details": "Implement individual chat interfaces for each agent, integrating with existing ChatContainerAI component",
+            "status": "pending"
+          },
+          {
+            "id": 7,
+            "title": "Apply ChatGPT-style Styling",
+            "description": "Style the interface to match ChatGPT design patterns",
+            "dependencies": [
+              2,
+              4
+            ],
+            "details": "Apply professional styling, smooth animations, hover effects, and responsive design matching ChatGPT's aesthetic",
+            "status": "pending"
+          },
+          {
+            "id": 8,
+            "title": "Test and Refine Interface",
+            "description": "Test all functionality and refine the user experience",
+            "dependencies": [
+              5,
+              6,
+              7
+            ],
+            "details": "Comprehensive testing of all features, fix any bugs, and refine the user experience",
+            "status": "pending"
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-06-17T20:51:38.398Z",
-      "updated": "2025-06-19T00:18:40.092Z",
+      "updated": "2025-06-19T18:18:00.624Z",
       "description": "Tasks for master context"
     }
   }
