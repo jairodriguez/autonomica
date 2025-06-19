@@ -1,0 +1,32 @@
+{
+    "mcpServers": {
+    
+      "taskmaster-ai": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "--package=task-master-ai",
+          "task-master-ai"
+        ],
+        "env": {
+          "ANTHROPIC_API_KEY": "sk-ant-api03-your-key-here",
+          "PERPLEXITY_API_KEY": "pplx-your-key-here",
+          "OPENAI_API_KEY": "sk-proj-your-key-here", 
+          "GOOGLE_API_KEY": "your-google-key-here",
+          "MISTRAL_API_KEY": "your-mistral-key-here",
+          "OPENROUTER_API_KEY": "sk-or-v1-your-key-here",
+          "XAI_API_KEY": "your-xai-key-here",
+          "AZURE_OPENAI_API_KEY": "your-azure-key-here",
+          "OLLAMA_API_KEY": "your-ollama-key-here"
+        }
+      },
+      "Playwright": {
+        "command": "npx @playwright/mcp@latest",
+        "env": {}
+      },
+      "context7": {
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp"]
+      }
+    }
+  } 

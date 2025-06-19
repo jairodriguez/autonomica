@@ -71,6 +71,7 @@ dev-debug.log
 # Dependency directories
 node_modules/
 # Environment variables
+mcp.json
 # Editor directories and files
 .idea
 .vscode
@@ -80,3 +81,6 @@ node_modules/
 *.sln
 *.sw?
 # OS specific
+
+# MCP Configuration (contains API keys - use mcp.json.example instead)
+.cursor/mcp.json
