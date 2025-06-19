@@ -100,11 +100,11 @@
         "id": 2,
         "title": "Implement Python API with OWL Framework",
         "description": "Create the Python API backend using the OWL framework to manage the agent workforce and handle API requests",
-        "details": "Setup Python API with OWL framework for agent orchestration:\n1. Initialize Python project with Poetry for dependency management\n2. Install core dependencies:\n   - FastAPI 0.104.x for API framework\n   - OWL framework (latest version) for agent orchestration\n   - LangChain 0.1.x for LLM interactions\n   - Redis-py 5.0.x for job queue\n   - FAISS-CPU 1.7.x for vector storage\n   - Pydantic 2.4.x for data validation\n3. Create API routes:\n   - `/api/agents` - Main endpoint for agent interactions\n   - `/api/tasks` - CRUD operations for tasks\n   - `/api/health` - Health check endpoint\n4. Implement OWL Workforce initialization (<30s boot time)\n5. Setup serverless function handler for Vercel Python Runtime\n6. Implement async job offloading to Redis queue\n7. Create agent toolkit interfaces\n8. Setup CORS for frontend communication\n\nKey technical decisions:\n- Use FastAPI for high performance and async support\n- Implement connection pooling for Redis\n- Use Pydantic for request/response validation\n- Implement proper error handling with status codes",
-        "testStrategy": "1. Unit tests with pytest for API endpoints\n2. Integration tests for Redis queue functionality\n3. Mock OWL agent responses for testing\n4. Test error handling and edge cases\n5. Verify cold start performance (<30s)\n6. Load testing with Locust to ensure <2s P95 latency\n7. Test CORS configuration with frontend requests",
-        "priority": "high",
-        "dependencies": [],
         "status": "in-progress",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Setup Python API with OWL framework for agent orchestration:\n1. Initialize Python project with Poetry for dependency management\n2. Install core dependencies:\n   - FastAPI 0.104.x for API framework\n   - OWL framework (latest version) for agent orchestration\n   - LangChain 0.1.x for LLM interactions\n   - Redis-py 5.0.x for job queue\n   - FAISS-CPU 1.7.x for vector storage\n   - Pydantic 2.4.x for data validation\n   - Clerk SDK for authentication\n3. Create API routes:\n   - `/api/agents` - Main endpoint for agent interactions\n   - `/api/tasks` - CRUD operations for tasks\n   - `/api/health` - Health check endpoint\n4. Implement OWL Workforce initialization (<30s boot time)\n5. Setup serverless function handler for Vercel Python Runtime\n6. Implement async job offloading to Redis queue\n7. Create agent toolkit interfaces\n8. Setup CORS for frontend communication\n9. Integrate Clerk for authentication instead of custom JWT solution\n\nKey technical decisions:\n- Use FastAPI for high performance and async support\n- Implement connection pooling for Redis\n- Use Pydantic for request/response validation\n- Implement proper error handling with status codes\n- Use Clerk for authentication to leverage enterprise-grade security features",
+        "testStrategy": "1. Unit tests with pytest for API endpoints\n2. Integration tests for Redis queue functionality\n3. Mock OWL agent responses for testing\n4. Test error handling and edge cases\n5. Verify cold start performance (<30s)\n6. Load testing with Locust to ensure <2s P95 latency\n7. Test CORS configuration with frontend requests\n8. Test Clerk authentication integration and token validation",
         "subtasks": [
           {
             "id": 1,
@@ -132,8 +132,8 @@
               1,
               2
             ],
-            "details": "Develop API endpoints for user registration and login, implement JWT token-based authentication, and integrate with the OWL framework for user management",
-            "status": "pending"
+            "details": "Develop API endpoints for user registration and login, implement JWT token-based authentication, and integrate with the OWL framework for user management\n<info added on 2025-06-19T18:39:45.431Z>\nImplement authentication using Clerk instead of custom JWT solution. Set up Clerk integration with the API by:\n\n1. Installing Clerk SDK for backend authentication\n2. Configuring environment variables for Clerk API keys\n3. Creating middleware to validate Clerk session tokens\n4. Implementing user context extraction from Clerk tokens\n5. Integrating Clerk user IDs with OWL framework for user management\n6. Building API endpoints for user registration and login that leverage Clerk's authentication\n7. Testing token validation and user session management\n8. Documenting the authentication flow for frontend integration\n\nThis approach replaces our custom JWT implementation with a more secure, feature-rich authentication system while maintaining the same core functionality for the API.\n</info added on 2025-06-19T18:39:45.431Z>",
+            "status": "in-progress"
           },
           {
             "id": 4,
@@ -143,7 +143,7 @@
               2,
               3
             ],
-            "details": "Develop an endpoint that allows users to create new AI agents, specifying their properties and capabilities using the OWL framework",
+            "details": "Develop an endpoint that allows users to create new AI agents, specifying their properties and capabilities using the OWL framework. Ensure the endpoint validates Clerk session tokens for authentication and associates agents with the authenticated user's Clerk ID.",
             "status": "pending"
           },
           {
@@ -154,7 +154,7 @@
               2,
               3
             ],
-            "details": "Develop an endpoint that retrieves and returns a list of available AI agents, including their properties and statuses",
+            "details": "Develop an endpoint that retrieves and returns a list of available AI agents, including their properties and statuses. Implement Clerk authentication to ensure users can only access their own agents or shared agents they have permission to view.",
             "status": "pending"
           },
           {
@@ -166,7 +166,7 @@
               3,
               4
             ],
-            "details": "Develop an endpoint that allows users to create new tasks, assign them to specific AI agents, and store task details using the OWL framework",
+            "details": "Develop an endpoint that allows users to create new tasks, assign them to specific AI agents, and store task details using the OWL framework. Integrate with Clerk authentication to associate tasks with the authenticated user's ID and validate permissions.",
             "status": "pending"
           },
           {
@@ -178,7 +178,7 @@
               3,
               6
             ],
-            "details": "Develop an endpoint that retrieves and returns the current status of a specific task or all tasks associated with a user or agent",
+            "details": "Develop an endpoint that retrieves and returns the current status of a specific task or all tasks associated with a user or agent. Use Clerk authentication to ensure users can only access their own tasks or tasks they have permission to view.",
             "status": "pending"
           },
           {
@@ -190,7 +190,7 @@
               4,
               6
             ],
-            "details": "Create a module that handles the coordination and communication between multiple AI agents when working on complex, multi-step tasks",
+            "details": "Create a module that handles the coordination and communication between multiple AI agents when working on complex, multi-step tasks. Ensure the orchestration system respects user permissions based on Clerk authentication.",
             "status": "pending"
           },
           {
@@ -215,6 +215,39 @@
               7
             ],
             "details": "Integrate Redis into the FastAPI application for caching frequently accessed data and implement a task queue system for handling long-running or background tasks",
+            "status": "pending"
+          },
+          {
+            "id": 11,
+            "title": "Set up Clerk SDK integration",
+            "description": "Install and configure Clerk SDK for backend authentication",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Install the Clerk SDK for Python, configure environment variables for Clerk API keys, and set up the necessary middleware to validate Clerk session tokens in the FastAPI application. Create helper functions to extract user information from Clerk tokens.",
+            "status": "pending"
+          },
+          {
+            "id": 12,
+            "title": "Implement Clerk authentication middleware",
+            "description": "Create middleware to validate Clerk session tokens and extract user context",
+            "dependencies": [
+              11
+            ],
+            "details": "Develop FastAPI middleware that validates incoming Clerk session tokens, extracts user information, and makes it available to route handlers. Implement proper error handling for invalid or expired tokens.",
+            "status": "pending"
+          },
+          {
+            "id": 13,
+            "title": "Document Clerk authentication flow",
+            "description": "Create documentation for the Clerk authentication integration",
+            "dependencies": [
+              3,
+              11,
+              12
+            ],
+            "details": "Document the Clerk authentication flow, including how to set up Clerk in the frontend, how to obtain and use session tokens, and how the backend validates these tokens. Include examples of API requests with authentication headers.",
             "status": "pending"
           }
         ]
@@ -1364,8 +1397,8 @@
               2,
               4
             ],
-            "details": "Apply professional styling, smooth animations, hover effects, and responsive design matching ChatGPT's aesthetic",
-            "status": "pending"
+            "details": "Apply professional styling, smooth animations, hover effects, and responsive design matching ChatGPT's aesthetic\n<info added on 2025-06-19T18:35:12.101Z>\nSuccessfully implemented ChatGPT-like dark theme with professional styling across all components:\n\n✅ Complete Dark Theme Implementation:\n- ProjectLayout: Dark gray-900 background \n- ProjectSidebar: Dark gray-900 background with gray-700 borders, purple-400 accents for active states\n- ProjectMainPanel: Dark gray-800 background with proper contrast\n- Status indicators: Purple for busy agents, green for idle, red for error, gray for offline\n- Project cards: Purple-900/30 background with purple-600/50 borders when selected\n- Agent cards: Gray-700/50 hover states with purple-900/30 selections\n- Welcome view: Dark theme with purple accents and proper statistics display\n- Agent detail tabs: Purple-500 active tab borders with dark gray navigation\n- Stats cards: Color-coded dark cards with proper accent colors\n- Config forms: Dark input fields with gray-700 backgrounds\n\n🎨 Color Scheme Matches ChatGPT:\n- Primary background: gray-900 (darkest)\n- Secondary background: gray-800 (panels)\n- Borders: gray-700 (subtle separation)\n- Text: gray-100 (primary), gray-400 (secondary)\n- Accents: purple-400 (primary), with green/red for status\n- Hover states: gray-800/50 and gray-700/50\n\nThe interface now has a sleek, professional dark theme aesthetic matching ChatGPT's interface while maintaining excellent readability and visual hierarchy.\n</info added on 2025-06-19T18:35:12.101Z>",
+            "status": "done"
           },
           {
             "id": 8,
@@ -1380,11 +1413,25 @@
             "status": "pending"
           }
         ]
+      },
+      {
+        "id": 14,
+        "title": "Implement Clerk Authentication in Next.js Frontend",
+        "description": "Integrate Clerk authentication into the Next.js frontend for the project management interface, including login/logout functionality and route protection.",
+        "details": "1. Install Clerk packages:\n   ```\n   npm install @clerk/nextjs\n   ```\n\n2. Configure Clerk providers in `app/layout.tsx`:\n   ```typescript\n   import { ClerkProvider } from '@clerk/nextjs'\n\n   export default function RootLayout({\n     children,\n   }: {\n     children: React.ReactNode\n   }) {\n     return (\n       <ClerkProvider>\n         <html lang=\"en\">\n           <body>{children}</body>\n         </html>\n       </ClerkProvider>\n     )\n   }\n   ```\n\n3. Set up environment variables in `.env.local`:\n   ```\n   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key\n   CLERK_SECRET_KEY=your_secret_key\n   ```\n\n4. Implement login/logout components:\n   - Create `components/Auth/SignInButton.tsx`\n   - Create `components/Auth/UserButton.tsx`\n\n5. Add authentication to the dark-themed interface:\n   - Update `app/page.tsx` to include SignInButton or UserButton\n   - Style components to match the dark theme\n\n6. Protect routes that require authentication:\n   - Create `middleware.ts` in the root directory:\n     ```typescript\n     import { authMiddleware } from \"@clerk/nextjs\";\n     \n     export default authMiddleware({\n       publicRoutes: [\"/\", \"/api/public\"]\n     });\n     \n     export const config = {\n       matcher: ['/((?!.+\\\\.[\\\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],\n     };\n     ```\n\n7. Integrate user context with project management features:\n   - Use `useUser` hook from Clerk in components that need user data\n   - Update API calls to include user token for authentication\n\n8. Implement role-based access control:\n   - Define user roles (e.g., admin, manager, user)\n   - Create a custom hook `useUserRole` to determine user's role\n   - Use role information to conditionally render UI elements\n\n9. Add error handling and loading states:\n   - Create `components/Auth/AuthLoading.tsx` for loading state\n   - Implement error messages for failed authentication attempts\n\n10. Optimize authentication state persistence:\n    - Configure Clerk to use JWT for stateless authentication\n    - Implement secure token storage and refresh mechanisms\n<info added on 2025-06-19T18:45:48.791Z>\n## Implementation Progress Update\n\n### Completed Tasks\n1. Successfully installed @clerk/nextjs package\n2. Configured ClerkProvider in app/layout.tsx with updated metadata\n3. Implemented dark-themed authentication components:\n   - UserButton: Custom dark-themed component with user information display\n   - SignInButton: Purple-themed button matching the interface design\n   - AuthLoading: Dark-themed loading state component\n4. Enhanced homepage with authentication integration:\n   - Added navigation bar with conditional authentication display\n   - Implemented protected Projects link with lock icon for unauthenticated users\n   - Applied full dark theme (gray-900/800/700 palette with purple accents)\n   - Added TypeScript types for chat handlers\n5. Created middleware.ts with clerkMiddleware to protect /projects routes\n6. Updated component exports to include authentication components\n7. Created .env.example with Clerk configuration template\n\n### Technical Implementation Details\n- Utilized latest Clerk API (clerkMiddleware, createRouteMatcher)\n- Applied consistent dark theme styling to match existing interface\n- Implemented protected routes with authentication requirements\n- Added conditional rendering based on authentication state\n- Incorporated proper loading states and error handling\n\n### Next Steps\n1. Set up Clerk account and add API keys to .env.local\n2. Test authentication flow and route protection\n3. Integrate with backend API to include user tokens\n4. Validate the complete authentication experience\n</info added on 2025-06-19T18:45:48.791Z>",
+        "testStrategy": "1. Unit test authentication components:\n   - Test SignInButton and UserButton render correctly\n   - Verify UserButton displays correct user information when logged in\n\n2. Integration test protected routes:\n   - Attempt to access protected routes without authentication\n   - Verify redirect to login page for unauthenticated users\n   - Test successful access to protected routes after authentication\n\n3. End-to-end test authentication flow:\n   - Use Playwright to simulate user sign-up, login, and logout processes\n   - Verify persistence of authentication state across page reloads\n\n4. Test role-based access control:\n   - Create test users with different roles\n   - Verify that UI elements and routes are correctly restricted based on user role\n\n5. Performance testing:\n   - Measure impact of authentication on initial page load time\n   - Test token refresh mechanism to ensure seamless user experience\n\n6. Security testing:\n   - Attempt to bypass authentication using expired or invalid tokens\n   - Verify that sensitive routes are not accessible via direct URL manipulation\n\n7. Cross-browser testing:\n   - Verify authentication works consistently across Chrome, Firefox, Safari, and Edge\n\n8. Mobile responsiveness:\n   - Test authentication UI on various mobile devices and screen sizes\n\n9. Error handling:\n   - Simulate network errors during authentication process\n   - Verify appropriate error messages are displayed to the user\n\n10. Accessibility testing:\n    - Use aXe or similar tools to ensure authentication components meet WCAG 2.1 AA standards",
+        "status": "done",
+        "dependencies": [
+          1,
+          2
+        ],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-06-17T20:51:38.398Z",
-      "updated": "2025-06-19T18:18:00.624Z",
+      "updated": "2025-06-19T18:55:46.669Z",
       "description": "Tasks for master context"
     }
   }

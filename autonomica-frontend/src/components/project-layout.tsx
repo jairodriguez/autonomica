@@ -186,7 +186,7 @@ export default function ProjectLayout({ className = '' }: ProjectLayoutProps) {
   };
 
   return (
-    <div className={`flex h-screen bg-gray-50 ${className}`}>
+    <div className={`flex h-screen bg-gray-900 ${className}`}>
       {/* Sidebar */}
       <ProjectSidebar
         projects={projects}
@@ -194,18 +194,16 @@ export default function ProjectLayout({ className = '' }: ProjectLayoutProps) {
         selectedAgentId={selectedAgentId}
         onProjectSelect={handleProjectSelect}
         onAgentSelect={handleAgentSelect}
-        className="relative"
+        className="relative border-r border-gray-700"
       />
       
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <ProjectMainPanel
-          selectedProject={selectedProject}
-          selectedAgent={selectedAgent}
-          projects={projects}
-          onAgentAction={handleAgentAction}
-        />
-      </div>
+      <ProjectMainPanel
+        selectedProject={selectedProject}
+        selectedAgent={selectedAgent}
+        onAgentAction={handleAgentAction}
+        className="flex-1 bg-gray-800"
+      />
     </div>
   );
 } 
