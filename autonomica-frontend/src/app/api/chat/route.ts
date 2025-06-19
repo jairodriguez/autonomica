@@ -1,8 +1,8 @@
-// Chat route that connects to Autonomica OWL backend
+// Chat route that connects to Autonomica OWL backend with tool-enabled agents
 
 export async function POST(req: Request) {
   try {
-    console.log('Chat API called - routing to Autonomica backend');
+    console.log('Chat API called - routing to Autonomica OWL backend');
     const { messages } = await req.json();
     console.log('Messages:', messages?.length);
 
@@ -13,10 +13,10 @@ export async function POST(req: Request) {
       return new Response('Invalid message format', { status: 400 });
     }
 
-    console.log('Sending to Autonomica API backend...');
+    console.log('Sending to Autonomica OWL API backend...');
     
-    // Call our FastAPI backend
-    const response = await fetch('http://localhost:8000/api/workflows/chat', {
+    // Call our FastAPI backend with new endpoint
+    const response = await fetch('http://localhost:8000/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,59 +35,73 @@ export async function POST(req: Request) {
       });
     }
 
-    // Check if the response is a stream
-    if (response.headers.get('content-type')?.includes('text/stream')) {
-      // Forward the stream from backend
-      return new Response(response.body, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
-    } else {
-      // Handle JSON response
-      const data = await response.json();
-      
-      // Convert to Vercel AI SDK streaming format
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          try {
-            // Send the response content as chunks
-            const content = data.response || data.message || 'No response from agents';
-            const chunks = content.split(' ');
-            
-            // Send initial message ID
-            controller.enqueue(encoder.encode(`f:{"messageId":"msg-${Date.now()}"}\n`));
-            
-            // Send content in chunks
-            chunks.forEach((chunk: string, index: number) => {
-              const text = index === 0 ? chunk : ` ${chunk}`;
-              controller.enqueue(encoder.encode(`0:"${text.replace(/"/g, '\\"')}"\n`));
-            });
-            
-            // End the stream
-            controller.enqueue(encoder.encode(`e:{"finishReason":"stop","usage":{"promptTokens":50,"completionTokens":${chunks.length}},"isContinued":false}\n`));
-            controller.enqueue(encoder.encode(`d:{"finishReason":"stop","usage":{"promptTokens":50,"completionTokens":${chunks.length}}}\n`));
-            controller.close();
-            
-            console.log('Response stream completed');
-          } catch (error) {
-            console.error('Stream processing error:', error);
-            controller.error(error);
+    // Handle JSON response from tool-enabled agents
+    const data = await response.json();
+    console.log('Agent response:', {
+      agent: data.agent_name,
+      type: data.agent_type,
+      tools_used: data.metadata?.tools_used?.length || 0,
+      status: data.metadata?.status
+    });
+    
+    // Convert to Vercel AI SDK streaming format
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        try {
+          // Get response content
+          const content = data.message || 'No response from agents';
+          
+          // Create agent info header
+          const agentInfo = `[${data.agent_name} - ${data.agent_type.replace('_', ' ').toUpperCase()}]`;
+          const toolsInfo = data.metadata?.tools_used?.length > 0 
+            ? ` (Used ${data.metadata.tools_used.length} tools)` 
+            : '';
+          
+          const fullContent = `${agentInfo}${toolsInfo}\n\n${content}`;
+          const chunks = fullContent.split(' ');
+          
+          // Send initial message ID
+          controller.enqueue(encoder.encode(`f:{"messageId":"msg-${Date.now()}"}\n`));
+          
+          // Send content in chunks for streaming effect
+          chunks.forEach((chunk: string, index: number) => {
+            const text = index === 0 ? chunk : ` ${chunk}`;
+            controller.enqueue(encoder.encode(`0:"${text.replace(/"/g, '\\"')}"\n`));
+          });
+          
+          // Add tool usage summary if tools were used
+          if (data.metadata?.tools_used?.length > 0) {
+            const toolsSummary = `\n\n🔧 Tools Used: ${data.metadata.tools_used.map((t: { function: string }) => t.function).join(', ')}`;
+            controller.enqueue(encoder.encode(`0:"${toolsSummary.replace(/"/g, '\\"')}"\n`));
           }
-        },
-      });
+          
+          // End the stream
+          const usage = {
+            promptTokens: 50,
+            completionTokens: chunks.length + (data.metadata?.tools_used?.length || 0) * 10
+          };
+          
+          controller.enqueue(encoder.encode(`e:{"finishReason":"stop","usage":${JSON.stringify(usage)},"isContinued":false}\n`));
+          controller.enqueue(encoder.encode(`d:{"finishReason":"stop","usage":${JSON.stringify(usage)}}\n`));
+          controller.close();
+          
+          console.log('OWL Agent response stream completed');
+        } catch (error) {
+          console.error('Stream processing error:', error);
+          controller.error(error);
+        }
+      },
+    });
 
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache',
-          'x-vercel-ai-data-stream': 'v1',
-        },
-      });
-    }
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'x-vercel-ai-data-stream': 'v1',
+      },
+    });
+    
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), { 

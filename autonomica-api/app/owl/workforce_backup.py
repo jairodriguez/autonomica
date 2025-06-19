@@ -15,17 +15,12 @@ from loguru import logger
 # CAMEL Framework imports for tool-enabled agents
 from camel.models import ModelFactory
 from camel.toolkits import (
+    BrowserToolkit,
     SearchToolkit,
     CodeExecutionToolkit,
-    MathToolkit,
-    RetrievalToolkit,
-    WeatherToolkit,
-    DalleToolkit,
-    TwitterToolkit,
-    SlackToolkit,
-    LinkedInToolkit,
-    GoogleMapsToolkit,
-    GithubToolkit,
+    FileWriteToolkit,
+    DocumentProcessingToolkit,
+    ExcelToolkit,
 )
 from camel.types import ModelPlatformType, ModelType
 from camel.societies import RolePlaying
@@ -132,43 +127,27 @@ class Agent:
                 model_platform = ModelPlatformType.GROQ
                 model_type = ModelType.LLAMA_3_1_70B_VERSATILE
             
-            # Create model with configuration
-            model_config_dict = {
-                "temperature": 0.7,
-                "max_tokens": 1000,
-            }
-            
+            # Create model
             model = ModelFactory.create(
                 model_platform=model_platform,
                 model_type=model_type,
-                model_config_dict=model_config_dict,
             )
             
             # Initialize toolkits based on agent tools
             toolkits = []
             for tool_name in self.tools:
-                if tool_name == "search":
+                if tool_name == "browser":
+                    toolkits.append(BrowserToolkit())
+                elif tool_name == "search":
                     toolkits.append(SearchToolkit())
                 elif tool_name == "code_execution":
                     toolkits.append(CodeExecutionToolkit())
-                elif tool_name == "math":
-                    toolkits.append(MathToolkit())
-                elif tool_name == "retrieval":
-                    toolkits.append(RetrievalToolkit())
-                elif tool_name == "weather":
-                    toolkits.append(WeatherToolkit())
-                elif tool_name == "dalle":
-                    toolkits.append(DalleToolkit())
-                elif tool_name == "twitter":
-                    toolkits.append(TwitterToolkit())
-                elif tool_name == "slack":
-                    toolkits.append(SlackToolkit())
-                elif tool_name == "linkedin":
-                    toolkits.append(LinkedInToolkit())
-                elif tool_name == "maps":
-                    toolkits.append(GoogleMapsToolkit())
-                elif tool_name == "github":
-                    toolkits.append(GithubToolkit())
+                elif tool_name == "file_write":
+                    toolkits.append(FileWriteToolkit())
+                elif tool_name == "document_processing":
+                    toolkits.append(DocumentProcessingToolkit())
+                elif tool_name == "excel":
+                    toolkits.append(ExcelToolkit())
             
             self.toolkit_instances = toolkits
             
@@ -494,20 +473,10 @@ class AutonomicaWorkforce:
     
     def get_model_pricing(self) -> Dict[str, Dict[str, Any]]:
         """Get current model pricing information"""
-        return MODEL_PRICING.copy()
-
-    async def shutdown(self):
-        """Cleanup resources during shutdown"""
-        logger.info("🔄 Shutting down Autonomica Workforce...")
-        # Cleanup any resources, close connections, etc.
-        # For now, just log the shutdown
-        for agent in self.agents.values():
-            agent.status = "offline"
-        logger.info("✅ Workforce shutdown complete")
+        return MODEL_PRICING
 
 # Global workforce instance
 _workforce_instance = None
-
 
 async def get_workforce() -> AutonomicaWorkforce:
     """Get or create workforce instance"""

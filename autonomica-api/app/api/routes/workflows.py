@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from app.owl.workforce import AutonomicaWorkforce
+from datetime import datetime
+from loguru import logger
 
 router = APIRouter()
 
@@ -22,16 +24,36 @@ class ChatRequest(BaseModel):
     """Chat request model"""
     message: str
     context: Optional[List[Dict[str, str]]] = []
-    agent_type: Optional[str] = None  # Specific agent to use, or let system choose
+    agent_type: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
-    """Chat response model"""
+    """Chat response model with tool execution information"""
     response: str
-    agent_used: str
+    agent_name: str
     agent_id: str
-    capabilities_applied: List[str]
-    metadata: Optional[Dict[str, Any]] = None
+    model_used: str
+    tools_used: List[str] = []
+    cost_info: Optional[Dict[str, Any]] = None
+    execution_time: Optional[float] = None
+    task_completed: bool = True
+
+
+class CreateAgentRequest(BaseModel):
+    """Request to create a new agent"""
+    name: str
+    agent_type: str
+    custom_prompt: str
+    model: str
+    tools: List[str]
+    capabilities: List[str]
+
+
+class CreateTeamRequest(BaseModel):
+    """Request to create a team of agents"""
+    team_name: str
+    agents: List[CreateAgentRequest]
+    description: Optional[str] = None
 
 
 class WorkflowResponse(BaseModel):
@@ -55,11 +77,15 @@ class WorkflowListResponse(BaseModel):
     completed_count: int
 
 
-def get_workforce(request: Request) -> AutonomicaWorkforce:
-    """Dependency to get workforce from app state"""
-    if not hasattr(request.app.state, 'workforce') or not request.app.state.workforce:
-        raise HTTPException(status_code=503, detail="OWL Workforce not initialized")
-    return request.app.state.workforce
+# Global workforce instance
+_workforce = None
+
+async def get_workforce():
+    global _workforce
+    if _workforce is None:
+        _workforce = AutonomicaWorkforce()
+        await _workforce.initialize()
+    return _workforce
 
 
 @router.post("/workflows", response_model=Dict[str, str])
@@ -270,61 +296,244 @@ async def list_example_workflows():
     }
 
 
-@router.post("/workflows/chat", response_model=ChatResponse)
+@router.post("/chat")
 async def chat_with_agents(
-    chat_request: ChatRequest,
+    request: ChatRequest,
     workforce: AutonomicaWorkforce = Depends(get_workforce)
 ):
-    """Chat with Autonomica marketing agents"""
-    
+    """Chat with OWL agents using real tool-enabled task execution"""
     try:
-        # Determine the best agent for the request
-        if chat_request.agent_type:
-            # Use specific agent if requested
-            agent = workforce.get_agent_by_type(chat_request.agent_type)
-            if not agent:
-                raise HTTPException(status_code=404, detail=f"Agent type '{chat_request.agent_type}' not found")
-        else:
-            # Let the system choose the best agent based on the message
-            agent = workforce.route_message_to_agent(chat_request.message)
+        # Route message to CEO for delegation
+        ceo = workforce.get_ceo_agent()
+        if not ceo:
+            raise HTTPException(status_code=500, detail="No CEO agent available")
         
-        # Create a simple task for the agent
+        # Create task specification for execution
         task_spec = {
-            "name": "Chat Response",
-            "description": f"Respond to user message: {chat_request.message[:100]}...",
+            "task_type": "chat_interaction",
             "inputs": {
-                "user_message": chat_request.message,
-                "conversation_context": chat_request.context
+                "user_message": request.message,
+                "context": request.context
             },
-            "agent_type": agent.type,
-            "priority": "high"
+            "metadata": {
+                "timestamp": datetime.utcnow().isoformat(),
+                "source": "web_interface"
+            }
         }
         
-        # Execute the task
-        result = await agent.execute_task(task_spec)
+        # Execute task through CEO
+        start_time = datetime.utcnow()
         
-        # Update agent status
-        agent.tasks_completed += 1
-        agent.last_active = agent.created_at  # Update timestamp
+        # Use the existing execute_task method from the backup
+        result = await ceo.execute_task(task_spec)
         
-        return ChatResponse(
-            response=result.get("response", "I'm here to help with your marketing needs!"),
-            agent_used=agent.name,
-            agent_id=agent.id,
-            capabilities_applied=agent.capabilities,
-            metadata={
-                "task_duration": result.get("duration", 0),
-                "confidence": result.get("confidence", 0.9),
-                "suggestions": result.get("suggestions", [])
-            }
+        end_time = datetime.utcnow()
+        execution_time = (end_time - start_time).total_seconds()
+        
+        # Create response
+        response = ChatResponse(
+            response=result.get("response", "Task completed successfully"),
+            agent_name=ceo.name,
+            agent_id=ceo.id,
+            model_used=ceo.model if hasattr(ceo, 'model') else "gpt-4o-mini",
+            tools_used=ceo.tools if hasattr(ceo, 'tools') else [],
+            cost_info={
+                "input_tokens": getattr(ceo, 'total_input_tokens', 0),
+                "output_tokens": getattr(ceo, 'total_output_tokens', 0),
+                "total_cost": getattr(ceo, 'total_cost', 0.0)
+            },
+            execution_time=execution_time,
+            task_completed=True
         )
         
+        logger.info(f"Task completed by {ceo.name} in {execution_time:.2f}s")
+        return response
+        
     except Exception as e:
-        # Fallback response if agent execution fails
-        return ChatResponse(
-            response=f"I'm Autonomica, your AI marketing assistant. I can help you with content creation, SEO optimization, social media management, campaign planning, and data analysis. How can I assist you today?",
-            agent_used="System Fallback",
-            agent_id="system",
-            capabilities_applied=["general_assistance"],
-            metadata={"error": str(e), "fallback": True}
-        ) 
+        logger.error(f"Chat execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Task execution failed: {str(e)}")
+
+
+@router.post("/agents/create")
+async def create_agent(
+    request: CreateAgentRequest,
+    workforce: AutonomicaWorkforce = Depends(get_workforce)
+):
+    """Create a new custom agent"""
+    try:
+        # For now, create a basic agent structure
+        agent_data = {
+            "name": request.name,
+            "type": request.agent_type,
+            "custom_prompt": request.custom_prompt,
+            "model": request.model,
+            "tools": request.tools,
+            "capabilities": request.capabilities
+        }
+        
+        # This would integrate with the CAMEL framework when fully implemented
+        logger.info(f"Agent creation requested: {request.name} ({request.agent_type})")
+        
+        return {
+            "message": f"Agent '{request.name}' creation initiated",
+            "agent_config": agent_data,
+            "status": "pending_implementation"
+        }
+        
+    except Exception as e:
+        logger.error(f"Agent creation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent creation failed: {str(e)}")
+
+
+@router.post("/teams/create")
+async def create_team(
+    request: CreateTeamRequest,
+    workforce: AutonomicaWorkforce = Depends(get_workforce)
+):
+    """Create a team of agents"""
+    try:
+        team_info = {
+            "team_name": request.team_name,
+            "description": request.description,
+            "agents": [
+                {
+                    "name": agent.name,
+                    "type": agent.agent_type,
+                    "model": agent.model,
+                    "tools": agent.tools
+                }
+                for agent in request.agents
+            ],
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        logger.info(f"Team creation requested: {request.team_name} with {len(request.agents)} agents")
+        
+        return {
+            "message": f"Team '{request.team_name}' creation initiated",
+            "team_info": team_info,
+            "status": "pending_implementation"
+        }
+        
+    except Exception as e:
+        logger.error(f"Team creation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Team creation failed: {str(e)}")
+
+
+@router.get("/costs")
+async def get_cost_summary(
+    workforce: AutonomicaWorkforce = Depends(get_workforce)
+):
+    """Get comprehensive cost breakdown"""
+    try:
+        # Basic cost summary for now
+        agents = workforce.get_all_agents() if hasattr(workforce, 'get_all_agents') else []
+        
+        cost_summary = {
+            "total_cost": sum(getattr(agent, 'total_cost', 0.0) for agent in agents),
+            "total_tasks": sum(getattr(agent, 'tasks_completed', 0) for agent in agents),
+            "agent_count": len(agents),
+            "agents": [
+                {
+                    "name": agent.name,
+                    "type": getattr(agent, 'type', 'unknown'),
+                    "cost": getattr(agent, 'total_cost', 0.0),
+                    "tasks": getattr(agent, 'tasks_completed', 0)
+                }
+                for agent in agents
+            ]
+        }
+        
+        return cost_summary
+        
+    except Exception as e:
+        logger.error(f"Cost summary failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Cost summary failed: {str(e)}")
+
+
+@router.get("/models/pricing")
+async def get_model_pricing():
+    """Get current model pricing information"""
+    try:
+        # Model pricing per 1K tokens (input/output)
+        pricing = {
+            "gpt-4o": {"input": 0.005, "output": 0.015, "provider": "openai"},
+            "gpt-4o-mini": {"input": 0.00015, "output": 0.0006, "provider": "openai"},
+            "gpt-4": {"input": 0.03, "output": 0.06, "provider": "openai"},
+            "gpt-3.5-turbo": {"input": 0.001, "output": 0.002, "provider": "openai"},
+            "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015, "provider": "anthropic"},
+            "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125, "provider": "anthropic"},
+            "llama-3.1-70b-versatile": {"input": 0.00059, "output": 0.00079, "provider": "groq"},
+            "llama-3.1-8b-instant": {"input": 0.00005, "output": 0.00008, "provider": "groq"},
+        }
+        
+        return {
+            "pricing": pricing,
+            "currency": "USD",
+            "unit": "per_1k_tokens",
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Pricing retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Pricing retrieval failed: {str(e)}")
+
+
+@router.get("/templates")
+async def get_agent_templates():
+    """Get available agent templates"""
+    try:
+        templates = {
+            "ceo": {
+                "name": "CEO",
+                "description": "Executive leader responsible for strategic oversight and team coordination",
+                "capabilities": ["strategic_leadership", "team_coordination", "delegation", "client_relations"],
+                "recommended_tools": ["search", "document_processing", "excel"],
+                "recommended_model": "gpt-4o"
+            },
+            "content_writer": {
+                "name": "Content Writer",
+                "description": "Expert content creator for blogs, marketing materials, and engaging copy",
+                "capabilities": ["blog_writing", "copywriting", "content_strategy", "storytelling"],
+                "recommended_tools": ["search", "browser", "document_processing", "file_write"],
+                "recommended_model": "gpt-4o"
+            },
+            "seo_analyst": {
+                "name": "SEO Analyst", 
+                "description": "SEO expert for search optimization and organic traffic growth",
+                "capabilities": ["keyword_research", "seo_audit", "competitor_analysis", "technical_seo"],
+                "recommended_tools": ["search", "browser", "excel", "document_processing"],
+                "recommended_model": "gpt-4o-mini"
+            },
+            "social_media_manager": {
+                "name": "Social Media Manager",
+                "description": "Social media expert for brand building and audience engagement",
+                "capabilities": ["social_strategy", "content_scheduling", "community_management", "social_advertising"],
+                "recommended_tools": ["search", "browser", "excel", "document_processing"],
+                "recommended_model": "gpt-4o-mini"
+            },
+            "data_analyst": {
+                "name": "Data Analyst",
+                "description": "Data expert for marketing analytics and performance insights",
+                "capabilities": ["data_analysis", "reporting", "visualization", "predictive_analytics"],
+                "recommended_tools": ["excel", "code_execution", "document_processing", "file_write"],
+                "recommended_model": "gpt-4o-mini"
+            }
+        }
+        
+        return {
+            "templates": templates,
+            "available_tools": ["search", "browser", "code_execution", "file_write", "document_processing", "excel"],
+            "available_models": list(pricing.keys()) if 'pricing' in locals() else ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+        }
+        
+    except Exception as e:
+        logger.error(f"Template retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Template retrieval failed: {str(e)}")
+
+
+# Legacy endpoint for backward compatibility
+@router.post("/workflows/chat")
+async def legacy_chat(request: ChatRequest):
+    """Legacy chat endpoint - redirects to new /chat endpoint"""
+    return await chat_with_agents(request, await get_workforce()) 

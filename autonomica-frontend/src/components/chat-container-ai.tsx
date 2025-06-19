@@ -5,6 +5,7 @@ import ChatMessages from './chat-messages';
 import ChatInput from './chat-input';
 import { useChat } from '@/lib/use-chat';
 import { Message } from '@/types/chat';
+import type { Agent } from './project-sidebar';
 
 interface ChatContainerAIProps {
   initialMessages?: Message[];
@@ -12,6 +13,7 @@ interface ChatContainerAIProps {
   onError?: (error: Error) => void;
   className?: string;
   api?: string;
+  agentContext?: Agent;
 }
 
 export default function ChatContainerAI({ 
@@ -19,7 +21,8 @@ export default function ChatContainerAI({
   onFinish,
   onError,
   className = "",
-  api = '/api/chat'
+  api = '/api/chat',
+  agentContext
 }: ChatContainerAIProps) {
   const { 
     messages, 
@@ -30,7 +33,7 @@ export default function ChatContainerAI({
     api,
     initialMessages,
     onFinish,
-    onError,
+    onError
   });
 
   const handleSendMessage = async (content: string) => {
@@ -41,20 +44,44 @@ export default function ChatContainerAI({
     }
   };
 
+  // Determine display info based on agent context
+  const displayName = agentContext ? agentContext.name : 'Marketing AI Assistant';
+  const displayStatus = agentContext ? 
+    (isLoading ? 'Thinking...' : 
+     agentContext.status === 'busy' ? 'Working...' :
+     agentContext.status === 'idle' ? 'Ready to help' :
+     agentContext.status === 'error' ? 'Error state' : 'Offline') :
+    (isLoading ? 'Thinking...' : 'Ready to help');
+  
+  const avatarColor = agentContext?.status === 'busy' ? 'bg-blue-600' :
+                     agentContext?.status === 'idle' ? 'bg-green-600' :
+                     agentContext?.status === 'error' ? 'bg-red-600' :
+                     agentContext?.status === 'offline' ? 'bg-gray-600' : 'bg-blue-600';
+
+  const placeholder = agentContext ? 
+    `Chat with ${agentContext.name}...` : 
+    'Ask your AI marketing team anything...';
+
   return (
     <div className={`flex flex-col h-full bg-white rounded-lg shadow-sm border ${className}`}>
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">AI</span>
+            <div className={`w-8 h-8 ${avatarColor} rounded-full flex items-center justify-center relative`}>
+              <span className="text-white text-sm font-medium">
+                {agentContext ? agentContext.name[0].toUpperCase() : 'AI'}
+              </span>
+              {agentContext?.status === 'busy' && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full animate-pulse" />
+              )}
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Marketing AI Assistant</h3>
-              <p className="text-xs text-gray-500">
-                {isLoading ? 'Thinking...' : 'Ready to help'}
-              </p>
+              <h3 className="text-sm font-medium text-gray-900">{displayName}</h3>
+              <p className="text-xs text-gray-500">{displayStatus}</p>
+              {agentContext && (
+                <p className="text-xs text-gray-400">{agentContext.type} • {agentContext.model}</p>
+              )}
             </div>
           </div>
           
@@ -78,8 +105,8 @@ export default function ChatContainerAI({
         <ChatInput 
           onSendMessage={handleSendMessage}
           isLoading={isLoading}
-          placeholder="Ask your AI marketing team anything..."
-          disabled={!!error}
+          placeholder={placeholder}
+          disabled={!!error || agentContext?.status === 'offline'}
         />
       </div>
     </div>

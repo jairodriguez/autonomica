@@ -1,6 +1,7 @@
 'use client';
 
 import { ChatContainerAI, Layout } from '@/components';
+import Link from 'next/link';
 
 export default function HomePage() {
   return (
@@ -14,10 +15,23 @@ export default function HomePage() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-2">
             Powered by OWL (Optimized Workflow Language) and CAMEL multi-agent systems
           </p>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-6">
             Get intelligent marketing insights, content creation, SEO analysis, and campaign planning 
             from your AI-powered marketing team.
           </p>
+          
+          {/* Navigation to Projects */}
+          <div className="flex justify-center space-x-4 mb-8">
+            <Link 
+              href="/projects"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              🏗️ Manage Projects & Agents
+            </Link>
+            <button className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+              💬 Quick Chat Below
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
