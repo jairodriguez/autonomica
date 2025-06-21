@@ -26,7 +26,7 @@ wheels/
 venv/
 env/
 ENV/
-.env
+.env*
 
 # Runtime Temporary files
 tmp/

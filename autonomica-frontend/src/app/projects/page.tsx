@@ -1,11 +1,14 @@
 'use client';
 
 import { ProjectLayout } from '@/components';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 
 export default function ProjectsPage() {
   return (
-    <div className="h-screen w-full">
-      <ProjectLayout />
-    </div>
+    <ProtectedRoute>
+      <div className="h-screen w-full">
+        <ProjectLayout />
+      </div>
+    </ProtectedRoute>
   );
 } 

@@ -1,6 +1,7 @@
 'use client';
 
-import { SignInButton as ClerkSignInButton, useUser } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 
 export function SignInButton() {
   const { isLoaded, isSignedIn } = useUser();
@@ -18,10 +19,10 @@ export function SignInButton() {
   }
 
   return (
-    <ClerkSignInButton mode="modal">
+    <Link href="/sign-in">
       <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
         Sign In
       </button>
-    </ClerkSignInButton>
+    </Link>
   );
 } 

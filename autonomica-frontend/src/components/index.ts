@@ -13,4 +13,5 @@ export { default as ChatMessages } from './chat-messages';
 // Auth Components
 export * from './auth/user-button';
 export * from './auth/sign-in-button';
-export * from './auth/auth-loading'; 
+export * from './auth/auth-loading';
+export * from './auth/protected-route'; 

@@ -33,7 +33,8 @@ export default function ChatContainerAI({
     api,
     initialMessages,
     onFinish,
-    onError
+    onError,
+    agentContext
   });
 
   const handleSendMessage = async (content: string) => {

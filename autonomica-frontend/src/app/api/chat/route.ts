@@ -3,8 +3,9 @@
 export async function POST(req: Request) {
   try {
     console.log('Chat API called - routing to Autonomica OWL backend');
-    const { messages } = await req.json();
+    const { messages, agentContext } = await req.json();
     console.log('Messages:', messages?.length);
+    console.log('Agent Context:', agentContext?.name, agentContext?.type);
 
     // Get the last user message to send to our backend
     const lastMessage = messages[messages.length - 1];
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         message: lastMessage.content,
         context: messages.slice(0, -1), // Previous conversation context
+        agent_type: agentContext?.type || 'ceo_agent',
+        agent_name: agentContext?.name || 'CEO Agent',
       }),
     });
 
@@ -67,13 +70,13 @@ export async function POST(req: Request) {
           // Send content in chunks for streaming effect
           chunks.forEach((chunk: string, index: number) => {
             const text = index === 0 ? chunk : ` ${chunk}`;
-            controller.enqueue(encoder.encode(`0:"${text.replace(/"/g, '\\"')}"\n`));
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(text)}\n`));
           });
           
           // Add tool usage summary if tools were used
           if (data.metadata?.tools_used?.length > 0) {
             const toolsSummary = `\n\n🔧 Tools Used: ${data.metadata.tools_used.map((t: { function: string }) => t.function).join(', ')}`;
-            controller.enqueue(encoder.encode(`0:"${toolsSummary.replace(/"/g, '\\"')}"\n`));
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(toolsSummary)}\n`));
           }
           
           // End the stream
