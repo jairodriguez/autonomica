@@ -83,6 +83,7 @@ class Agent:
     status: str = "idle"  # idle, busy, error, offline
     created_at: datetime = field(default_factory=datetime.utcnow)
     created_by: str = "system"
+    user_id: Optional[str] = None  # Clerk user ID
     last_active: datetime = field(default_factory=datetime.utcnow)
     
     # Cost tracking
@@ -107,6 +108,7 @@ class Agent:
             "status": self.status,
             "created_at": self.created_at.isoformat(),
             "created_by": self.created_by,
+            "user_id": self.user_id,
             "last_active": self.last_active.isoformat(),
             "total_input_tokens": self.total_input_tokens,
             "total_output_tokens": self.total_output_tokens,
@@ -370,7 +372,8 @@ class AutonomicaWorkforce:
         custom_prompt: Optional[str] = None,
         custom_model: Optional[str] = None,
         custom_tools: Optional[List[str]] = None,
-        created_by: str = "user"
+        created_by: str = "user",
+        user_id: Optional[str] = None
     ) -> Agent:
         """Create a new agent from a template with customizations"""
         
@@ -387,7 +390,8 @@ class AutonomicaWorkforce:
             capabilities=template.capabilities.copy(),
             model=custom_model or template.recommended_model,
             tools=custom_tools or template.recommended_tools.copy(),
-            created_by=created_by
+            created_by=created_by,
+            user_id=user_id
         )
         
         # Initialize the CAMEL agent
@@ -406,7 +410,8 @@ class AutonomicaWorkforce:
         model: str,
         tools: List[str],
         capabilities: List[str],
-        created_by: str = "user"
+        created_by: str = "user",
+        user_id: Optional[str] = None
     ) -> Agent:
         """Create a completely custom agent"""
         
@@ -418,7 +423,8 @@ class AutonomicaWorkforce:
             capabilities=capabilities,
             model=model,
             tools=tools,
-            created_by=created_by
+            created_by=created_by,
+            user_id=user_id
         )
         
         await agent.initialize_camel_agent()
