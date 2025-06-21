@@ -84,3 +84,5 @@ mcp.json
 
 # MCP Configuration (contains API keys - use mcp.json.example instead)
 .cursor/mcp.json.specstory/
+.specstory/
+.specstory/history
