@@ -21,6 +21,7 @@ class AgentResponse(BaseModel):
     created_at: str
     last_active: str
     tasks_completed: int
+    user_id: Optional[str] = None
 
 
 class AgentListResponse(BaseModel):
@@ -60,29 +61,35 @@ def get_workforce(request: Request) -> AutonomicaWorkforce:
 async def list_agents(
     agent_type: Optional[str] = None,
     status: Optional[str] = None,
+    current_user: ClerkUser = Depends(get_current_user),
     workforce: AutonomicaWorkforce = Depends(get_workforce)
 ):
-    """List all available agents with optional filtering"""
+    """List all available agents for the authenticated user with optional filtering"""
     
-    agents = list(workforce.agents.values())
+    # Filter agents by user_id to show only user's own agents
+    user_agents = [
+        agent for agent in workforce.agents.values() 
+        if agent.user_id == current_user.user_id
+    ]
     
-    # Apply filters
+    # Apply additional filters
     if agent_type:
-        agents = [a for a in agents if a.type == agent_type]
+        user_agents = [a for a in user_agents if a.type == agent_type]
     
     if status:
-        agents = [a for a in agents if a.status == status]
+        user_agents = [a for a in user_agents if a.status == status]
     
     # Convert to response format
     agent_responses = [
-        AgentResponse(**agent.to_dict()) for agent in agents
+        AgentResponse(**agent.to_dict()) for agent in user_agents
     ]
     
-    active_count = len([a for a in workforce.agents.values() if a.status not in ["offline", "error"]])
+    # Count active agents for this user only
+    active_count = len([a for a in user_agents if a.status not in ["offline", "error"]])
     
     return AgentListResponse(
         agents=agent_responses,
-        total_count=len(workforce.agents),
+        total_count=len(user_agents),
         active_count=active_count
     )
 
@@ -90,13 +97,18 @@ async def list_agents(
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
 async def get_agent(
     agent_id: str,
+    current_user: ClerkUser = Depends(get_current_user),
     workforce: AutonomicaWorkforce = Depends(get_workforce)
 ):
-    """Get a specific agent by ID"""
+    """Get a specific agent by ID (user can only access their own agents)"""
     
     agent = workforce.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    
+    # Check if the agent belongs to the authenticated user
+    if agent.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Access denied: You can only access your own agents")
     
     return AgentResponse(**agent.to_dict())
 
@@ -104,20 +116,24 @@ async def get_agent(
 @router.get("/agents/types/{agent_type}", response_model=AgentListResponse)
 async def get_agents_by_type(
     agent_type: str,
+    current_user: ClerkUser = Depends(get_current_user),
     workforce: AutonomicaWorkforce = Depends(get_workforce)
 ):
-    """Get all agents of a specific type"""
+    """Get all agents of a specific type for the authenticated user"""
     
     agents = workforce.get_agents_by_type(agent_type)
     
+    # Filter to only include user's own agents
+    user_agents = [a for a in agents if a.user_id == current_user.user_id]
+    
     agent_responses = [
-        AgentResponse(**agent.to_dict()) for agent in agents
+        AgentResponse(**agent.to_dict()) for agent in user_agents
     ]
     
     return AgentListResponse(
         agents=agent_responses,
-        total_count=len(agents),
-        active_count=len([a for a in agents if a.status not in ["offline", "error"]])
+        total_count=len(user_agents),
+        active_count=len([a for a in user_agents if a.status not in ["offline", "error"]])
     )
 
 
