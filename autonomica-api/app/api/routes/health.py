@@ -9,6 +9,7 @@ from typing import Dict, Any
 import os
 import sys
 from app.core.config import settings
+from app.services.redis_service import get_redis_service, RedisService
 
 router = APIRouter()
 
@@ -45,12 +46,11 @@ async def health_check():
         "owl_framework": "initializing"
     }
     
-    # Try to check Redis connection
+    # Try to check Redis connection using our Redis service
     try:
-        import redis
-        r = redis.from_url(settings.REDIS_URL, socket_timeout=1)
-        r.ping()
-        services["redis"] = "healthy"
+        from app.services.redis_service import redis_service
+        redis_health = await redis_service.health_check()
+        services["redis"] = redis_health["status"]
     except Exception:
         services["redis"] = "unhealthy"
     
@@ -115,11 +115,13 @@ async def readiness_check():
         ready = False
         issues.append("No AI provider API key configured")
     
-    # Check Redis connection
+    # Check Redis connection using our Redis service
     try:
-        import redis
-        r = redis.from_url(settings.REDIS_URL, socket_timeout=1)
-        r.ping()
+        from app.services.redis_service import redis_service
+        redis_health = await redis_service.health_check()
+        if redis_health["status"] != "healthy":
+            ready = False
+            issues.append(f"Redis unhealthy: {redis_health.get('error', 'Unknown error')}")
     except Exception as e:
         ready = False
         issues.append(f"Redis connection failed: {str(e)}")
@@ -148,4 +150,27 @@ async def liveness_check():
         "alive": True,
         "timestamp": datetime.utcnow(),
         "pid": os.getpid()
-    } 
+    }
+
+
+@router.get("/health/redis")
+async def redis_health_check(redis_service: RedisService = Depends(get_redis_service)):
+    """Detailed Redis health check"""
+    
+    health_status = await redis_service.health_check()
+    
+    # Add additional Redis-specific information
+    health_status.update({
+        "backend_type": "Vercel KV" if redis_service.is_vercel_kv else "Traditional Redis",
+        "supports_user_scoping": True,
+        "supports_task_queue": True,
+        "supports_rate_limiting": True
+    })
+    
+    if health_status["status"] != "healthy":
+        raise HTTPException(
+            status_code=503,
+            detail=health_status
+        )
+    
+    return health_status 

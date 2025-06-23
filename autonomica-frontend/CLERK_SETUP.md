@@ -108,4 +108,20 @@ Once authentication is working:
 
 ---
 
-**Need help?** Check the [Clerk Documentation](https://clerk.com/docs) or the `autonomica-frontend/src/components/auth/` folder for implementation details. 
+## 10. Complete Authentication Documentation
+
+For comprehensive documentation covering both frontend and backend integration, including API authentication, security considerations, testing strategies, and production deployment:
+
+📖 **See:** [`autonomica-api/docs/AUTHENTICATION.md`](../autonomica-api/docs/AUTHENTICATION.md)
+
+This comprehensive guide includes:
+- Complete authentication flow documentation
+- Backend FastAPI integration with Clerk
+- API request examples with JWT tokens
+- Security best practices and error handling
+- Testing strategies and troubleshooting
+- Production deployment checklist
+
+---
+
+**Need help?** Check the [Clerk Documentation](https://clerk.com/docs), the `autonomica-frontend/src/components/auth/` folder for implementation details, or the comprehensive authentication guide linked above. 

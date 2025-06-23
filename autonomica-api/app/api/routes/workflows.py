@@ -8,6 +8,8 @@ from typing import List, Dict, Any, Optional
 from app.owl.workforce import AutonomicaWorkforce
 from datetime import datetime
 from loguru import logger
+from app.services.redis_service import get_redis_service, RedisService
+from app.auth.clerk_middleware import get_current_user, ClerkUser
 
 router = APIRouter()
 
@@ -299,10 +301,25 @@ async def list_example_workflows():
 @router.post("/chat")
 async def chat_with_agents(
     request: ChatRequest,
-    workforce: AutonomicaWorkforce = Depends(get_workforce)
+    workforce: AutonomicaWorkforce = Depends(get_workforce),
+    redis_service: RedisService = Depends(get_redis_service),
+    current_user: ClerkUser = Depends(get_current_user)
 ):
-    """Chat with OWL agents using real tool-enabled task execution"""
+    """Chat with OWL agents using real tool-enabled task execution with Redis caching"""
     try:
+        # Check rate limiting
+        if not await redis_service.check_rate_limit(current_user.id, limit=30, window=60):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded. Please try again later.")
+        
+        # Generate cache key for this conversation
+        cache_key = f"recent_response:{current_user.id}:{hash(request.message)}"
+        
+        # Check if we have a recent response cached
+        cached_response = await redis_service.cache_get(cache_key)
+        if cached_response:
+            logger.info(f"Returning cached response for user {current_user.id}")
+            return ChatResponse(**cached_response)
+        
         # Route message to CEO for delegation
         ceo = workforce.get_ceo_agent()
         if not ceo:
@@ -317,7 +334,8 @@ async def chat_with_agents(
             },
             "metadata": {
                 "timestamp": datetime.utcnow().isoformat(),
-                "source": "web_interface"
+                "source": "web_interface",
+                "user_id": current_user.id
             }
         }
         
@@ -331,24 +349,40 @@ async def chat_with_agents(
         execution_time = (end_time - start_time).total_seconds()
         
         # Create response
-        response = ChatResponse(
-            response=result.get("response", "Task completed successfully"),
-            agent_name=ceo.name,
-            agent_id=ceo.id,
-            model_used=ceo.model if hasattr(ceo, 'model') else "gpt-4o-mini",
-            tools_used=ceo.tools if hasattr(ceo, 'tools') else [],
-            cost_info={
+        response_data = {
+            "response": result.get("response", "Task completed successfully"),
+            "agent_name": ceo.name,
+            "agent_id": ceo.id,
+            "model_used": ceo.model if hasattr(ceo, 'model') else "gpt-4o-mini",
+            "tools_used": ceo.tools if hasattr(ceo, 'tools') else [],
+            "cost_info": {
                 "input_tokens": getattr(ceo, 'total_input_tokens', 0),
                 "output_tokens": getattr(ceo, 'total_output_tokens', 0),
                 "total_cost": getattr(ceo, 'total_cost', 0.0)
             },
-            execution_time=execution_time,
-            task_completed=True
+            "execution_time": execution_time,
+            "task_completed": True
+        }
+        
+        response = ChatResponse(**response_data)
+        
+        # Cache the response for 5 minutes to avoid duplicate processing
+        await redis_service.cache_set(cache_key, response_data, ttl=300)
+        
+        # Cache agent response for user session tracking
+        await redis_service.cache_agent_response(
+            current_user.id,
+            request.agent_type or "ceo_agent",
+            response_data,
+            ttl=1800  # 30 minutes
         )
         
-        logger.info(f"Task completed by {ceo.name} in {execution_time:.2f}s")
+        logger.info(f"Task completed by {ceo.name} in {execution_time:.2f}s for user {current_user.id}")
         return response
         
+    except HTTPException:
+        # Re-raise HTTP exceptions (like rate limiting)
+        raise
     except Exception as e:
         logger.error(f"Chat execution failed: {e}")
         raise HTTPException(status_code=500, detail=f"Task execution failed: {str(e)}")
@@ -536,4 +570,106 @@ async def get_agent_templates():
 @router.post("/workflows/chat")
 async def legacy_chat(request: ChatRequest):
     """Legacy chat endpoint - redirects to new /chat endpoint"""
-    return await chat_with_agents(request, await get_workforce()) 
+    return await chat_with_agents(request, await get_workforce())
+
+
+@router.post("/tasks/enqueue")
+async def enqueue_background_task(
+    task_data: Dict[str, Any],
+    redis_service: RedisService = Depends(get_redis_service),
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Enqueue a background task for processing"""
+    try:
+        # Add user context to task
+        task_with_context = {
+            **task_data,
+            "user_id": current_user.id,
+            "enqueued_at": datetime.utcnow().isoformat()
+        }
+        
+        # Enqueue task
+        success = await redis_service.enqueue_task(current_user.id, task_with_context)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to enqueue task")
+        
+        return {
+            "message": "Task enqueued successfully",
+            "task_id": f"task_{datetime.utcnow().timestamp()}",
+            "user_id": current_user.id
+        }
+        
+    except Exception as e:
+        logger.error(f"Task enqueue failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Task enqueue failed: {str(e)}")
+
+
+@router.get("/tasks/next")
+async def get_next_task(
+    redis_service: RedisService = Depends(get_redis_service),
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Get the next task from the user's queue"""
+    try:
+        task = await redis_service.dequeue_task(current_user.id)
+        
+        if not task:
+            return {"message": "No tasks in queue", "task": None}
+        
+        return {
+            "message": "Task retrieved successfully",
+            "task": task
+        }
+        
+    except Exception as e:
+        logger.error(f"Task dequeue failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Task dequeue failed: {str(e)}")
+
+
+@router.get("/cache/user-data")
+async def get_user_cache_data(
+    key: str,
+    redis_service: RedisService = Depends(get_redis_service),
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Get cached data for the current user"""
+    try:
+        data = await redis_service.get_user_data(current_user.id, key)
+        
+        if data is None:
+            raise HTTPException(status_code=404, detail="Data not found")
+        
+        return {"key": key, "data": data}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Cache retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Cache retrieval failed: {str(e)}")
+
+
+@router.post("/cache/user-data")
+async def set_user_cache_data(
+    key: str,
+    data: Dict[str, Any],
+    ttl: Optional[int] = 3600,
+    redis_service: RedisService = Depends(get_redis_service),
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Set cached data for the current user"""
+    try:
+        success = await redis_service.cache_user_data(current_user.id, key, data, ttl)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to cache data")
+        
+        return {
+            "message": "Data cached successfully",
+            "key": key,
+            "ttl": ttl
+        }
+        
+    except Exception as e:
+        logger.error(f"Cache set failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Cache set failed: {str(e)}") 
