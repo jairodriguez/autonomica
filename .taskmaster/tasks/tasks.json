@@ -214,7 +214,7 @@
               6,
               7
             ],
-            "details": "Integrate Redis into the FastAPI application for caching frequently accessed data and implement a task queue system for handling long-running or background tasks",
+            "details": "Integrate Redis into the FastAPI application for caching frequently accessed data and implement a task queue system for handling long-running or background tasks\n<info added on 2025-06-23T16:06:54.719Z>\n# Redis Integration Implementation\n\n## System Status Overview\n- Frontend, chat functionality, authentication, and API communication are all operational\n- Response times range from 74ms to 5687ms depending on query complexity\n\n## Redis Integration Plan\n1. **Primary Solution: Vercel KV (Redis-compatible)**\n   - Native Vercel integration with serverless architecture\n   - Implement using `@vercel/kv` package\n   - Pay-per-use pricing model with no idle costs\n   - Multi-tenant design with user-scoped keys using pattern `user:{clerk_user_id}:*`\n\n2. **Alternative Option: Upstash Redis**\n   - External serverless-optimized Redis service\n   - REST API with edge optimization and global replication\n   - HTTP-based Redis client implementation\n\n## Implementation Details\n1. Configure Vercel KV for the FastAPI application\n2. Implement user-scoped caching using Clerk user IDs as namespace\n3. Develop task queue system for background processing and agent orchestration\n4. Set up session caching for persistent agent state management\n5. Ensure multi-tenant security with proper key isolation between users\n\n## Production Readiness\nThe Redis integration will complete the system architecture, making it fully ready for Vercel deployment with proper caching and background task processing capabilities.\n</info added on 2025-06-23T16:06:54.719Z>",
             "status": "pending"
           },
           {
@@ -247,8 +247,8 @@
               11,
               12
             ],
-            "details": "Document the Clerk authentication flow, including how to set up Clerk in the frontend, how to obtain and use session tokens, and how the backend validates these tokens. Include examples of API requests with authentication headers.",
-            "status": "pending"
+            "details": "Document the Clerk authentication flow, including how to set up Clerk in the frontend, how to obtain and use session tokens, and how the backend validates these tokens. Include examples of API requests with authentication headers.\n<info added on 2025-06-23T15:53:25.060Z>\nDocumentation for Clerk authentication has been successfully created and stored at `autonomica-api/docs/AUTHENTICATION.md`. The comprehensive documentation covers:\n\nFrontend Integration:\n- Environment configuration (.env.local setup)\n- Clerk dashboard configuration (URLs, redirects)\n- Authentication component implementation (ClerkProvider, middleware, auth pages)\n- Session token retrieval using useAuth() hook\n- Protected route setup and middleware\n\nBackend Integration:\n- Environment configuration (.env setup)\n- Clerk middleware implementation (clerk_middleware.py)\n- JWT token verification flow\n- ClerkUser class and user context\n- Protected API route examples\n- get_current_user dependency pattern\n\nAPI Request Examples:\n- Frontend authenticated requests using useAuth()\n- Direct curl examples with Bearer tokens\n- Request/response examples for success and error cases\n- API utility functions for reusable auth calls\n\nAuthentication Flow Documentation:\n- Complete user sign-in process\n- API request flow\n- Token validation process\n\nSecurity & Best Practices:\n- Token handling best practices\n- Route protection strategies\n- Environment variable security\n- HTTPS requirements and CORS configuration\n\nComprehensive Guides:\n- Error handling patterns and common scenarios\n- Testing strategies\n- Troubleshooting common issues\n- Production deployment checklist\n- Migration guidance from other auth systems\n\nThe documentation provides everything developers need to set up, understand, implement, troubleshoot, and securely deploy Clerk authentication in the application.\n</info added on 2025-06-23T15:53:25.060Z>",
+            "status": "done"
           }
         ]
       },
@@ -269,7 +269,7 @@
             "title": "Create Dockerfile for worker pod",
             "description": "Create a Dockerfile that defines the base image and system dependencies for the worker pod",
             "dependencies": [],
-            "details": "Use a suitable base image (e.g., Python), install required system packages, and set up the working directory",
+            "details": "Use a suitable base image (e.g., Python), install required system packages, and set up the working directory\n<info added on 2025-06-23T16:07:11.989Z>\nFor the Docker image, use Python 3.11 as the base image. Install the following system packages:\n- build-essential\n- python3-dev\n- libffi-dev\n\nRequired Python dependencies:\n- fastapi==0.104.1\n- uvicorn[standard]==0.23.2\n- pydantic==2.4.2\n- httpx==0.25.0\n- python-dotenv==1.0.0\n- redis==5.0.1\n\nConfigure the working directory as /app and set up a virtual environment. Ensure the container exposes the appropriate port (8000) for the FastAPI backend to communicate with the Next.js frontend. This configuration will support the Vercel deployment strategy with proper API response times (74ms-5687ms) as observed in development logs.\n</info added on 2025-06-23T16:07:11.989Z>",
             "status": "pending"
           },
           {
@@ -352,14 +352,14 @@
         "id": 4,
         "title": "Implement Data Models and Storage",
         "description": "Design and implement the data models and storage solutions for the application, including SQLite database and vector storage",
-        "details": "Implement data models and storage solutions:\n1. Create SQLite database schema with SQLAlchemy ORM (2.0.x):\n   - `Task` table: id, goal, status, cost_tokens, created_at, updated_at\n   - `Agent` table: agent_id, role, capabilities\n   - `KeywordRecord` table: keyword, volume, cpc, kd, source_url, created_at\n   - `ContentPiece` table: id, type, content, status, publish_date\n   - `SocialPost` table: id, platform, content_id, status, metrics_json\n2. Implement FAISS vector store for AgentMemory:\n   - Setup embedding model (OpenAI ada-002 or local alternative)\n   - Create memory persistence layer\n   - Implement retrieval functions with cosine similarity\n3. Setup CSV export functionality for data portability\n4. Configure Supabase bucket for logs storage\n5. Implement data migration utilities\n6. Add backup functionality for SQLite database\n\nExample SQLAlchemy model:\n```python\nfrom sqlalchemy import Column, Integer, String, Float, DateTime, JSON\nfrom sqlalchemy.ext.declarative import declarative_base\nfrom datetime import datetime\n\nBase = declarative_base()\n\nclass Task(Base):\n    __tablename__ = \"tasks\"\n    \n    id = Column(Integer, primary_key=True)\n    goal = Column(String, nullable=False)\n    status = Column(String, default=\"pending\")\n    cost_tokens = Column(Integer, default=0)\n    created_at = Column(DateTime, default=datetime.utcnow)\n    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)\n```",
-        "testStrategy": "1. Unit tests for database models and CRUD operations\n2. Test vector store retrieval accuracy\n3. Benchmark query performance\n4. Test data migration utilities\n5. Verify CSV export functionality\n6. Test backup and restore procedures\n7. Validate data integrity constraints\n8. Test concurrent access patterns",
-        "priority": "medium",
+        "status": "pending",
         "dependencies": [
           2,
           3
         ],
-        "status": "pending",
+        "priority": "medium",
+        "details": "Implement data models and storage solutions:\n1. Create SQLite database schema with SQLAlchemy ORM (2.0.x):\n   - `Task` table: id, goal, status, cost_tokens, created_at, updated_at\n   - `Agent` table: agent_id, role, capabilities\n   - `KeywordRecord` table: keyword, volume, cpc, kd, source_url, created_at\n   - `ContentPiece` table: id, type, content, status, publish_date\n   - `SocialPost` table: id, platform, content_id, status, metrics_json\n2. Implement FAISS vector store for AgentMemory:\n   - Setup embedding model (OpenAI ada-002 or local alternative)\n   - Create memory persistence layer\n   - Implement retrieval functions with cosine similarity\n3. Setup CSV export functionality for data portability\n4. Configure Supabase bucket for logs storage\n5. Implement data migration utilities\n6. Add backup functionality for SQLite database\n\nExample SQLAlchemy model:\n```python\nfrom sqlalchemy import Column, Integer, String, Float, DateTime, JSON\nfrom sqlalchemy.ext.declarative import declarative_base\nfrom datetime import datetime\n\nBase = declarative_base()\n\nclass Task(Base):\n    __tablename__ = \"tasks\"\n    \n    id = Column(Integer, primary_key=True)\n    goal = Column(String, nullable=False)\n    status = Column(String, default=\"pending\")\n    cost_tokens = Column(Integer, default=0)\n    created_at = Column(DateTime, default=datetime.utcnow)\n    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)\n```\n\nNote: Ensure data models support the fully operational frontend features including:\n- Chat interface with real-time agent responses\n- Agent context switching between CEO Agent and Marketing Strategist\n- API communication with the Next.js 15.3.3 frontend\n- Clerk Authentication integration",
+        "testStrategy": "1. Unit tests for database models and CRUD operations\n2. Test vector store retrieval accuracy\n3. Benchmark query performance\n4. Test data migration utilities\n5. Verify CSV export functionality\n6. Test backup and restore procedures\n7. Validate data integrity constraints\n8. Test concurrent access patterns\n9. Verify compatibility with frontend API response times (74ms-5687ms)\n10. Test data models with agent context switching functionality",
         "subtasks": [
           {
             "id": 1,
@@ -440,6 +440,37 @@
               7
             ],
             "details": "Implement indexing strategies, query optimization techniques, and caching mechanisms to improve overall system performance",
+            "status": "pending"
+          },
+          {
+            "id": 9,
+            "title": "Implement agent context switching support",
+            "description": "Add data model support for switching between different agent contexts (CEO Agent and Marketing Strategist)",
+            "dependencies": [
+              2,
+              5
+            ],
+            "details": "Extend data models to store and retrieve agent context information, ensuring seamless switching between different agent roles",
+            "status": "pending"
+          },
+          {
+            "id": 10,
+            "title": "Optimize for frontend API response times",
+            "description": "Tune database and vector store performance to meet frontend response time requirements",
+            "dependencies": [
+              8
+            ],
+            "details": "Optimize data retrieval and processing to support the observed frontend API response times (74ms-5687ms) for different query complexities",
+            "status": "pending"
+          },
+          {
+            "id": 11,
+            "title": "Implement Clerk Authentication data integration",
+            "description": "Ensure data models properly integrate with Clerk Authentication",
+            "dependencies": [
+              2
+            ],
+            "details": "Add necessary tables or fields to store and validate Clerk Authentication data, ensuring proper user session management",
             "status": "pending"
           }
         ]
@@ -1026,14 +1057,14 @@
         "id": 10,
         "title": "Implement Analytics and Reporting",
         "description": "Create the analytics and reporting system to track KPIs and generate insights from marketing activities",
-        "details": "Implement analytics and reporting system:\n1. Create data collection pipelines:\n   - Google Search Console API integration for impressions/clicks\n   - Social media engagement metrics collection\n   - Token usage tracking\n   - Time savings calculation\n2. Build KPI dashboards:\n   - Implement chart components using Recharts or Chart.js\n   - Create summary metrics cards\n   - Add trend indicators and comparisons\n3. Implement reporting functionality:\n   - Create scheduled report generation\n   - Build export to CSV/PDF options\n   - Implement email delivery of reports\n4. Add custom date range selection\n5. Implement data aggregation and filtering\n\nExample Google Search Console integration:\n```typescript\nimport { google } from 'googleapis';\n\nexport async function fetchSearchConsoleData(siteUrl, startDate, endDate) {\n  // Initialize the Search Console API client\n  const searchconsole = google.searchconsole('v1');\n  \n  // Authenticate with service account or OAuth\n  const auth = new google.auth.GoogleAuth({\n    keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,\n    scopes: ['https://www.googleapis.com/auth/webmasters'],\n  });\n  \n  const authClient = await auth.getClient();\n  google.options({ auth: authClient });\n  \n  // Query Search Console data\n  const response = await searchconsole.searchanalytics.query({\n    siteUrl: siteUrl,\n    requestBody: {\n      startDate: startDate,\n      endDate: endDate,\n      dimensions: ['query', 'page'],\n      rowLimit: 500,\n    },\n  });\n  \n  return response.data;\n}\n\nexport function calculateImpressionGrowth(currentData, previousData) {\n  const currentImpressions = currentData.rows.reduce(\n    (sum, row) => sum + row.impressions, 0\n  );\n  \n  const previousImpressions = previousData.rows.reduce(\n    (sum, row) => sum + row.impressions, 0\n  );\n  \n  const growthRate = ((currentImpressions - previousImpressions) / previousImpressions) * 100;\n  \n  return {\n    current: currentImpressions,\n    previous: previousImpressions,\n    growth: growthRate,\n    target: 25, // 25% growth target from PRD\n    status: growthRate >= 25 ? 'on_target' : 'below_target',\n  };\n}\n```",
-        "testStrategy": "1. Unit tests for data collection functions\n2. Test API integrations with mock responses\n3. Validate calculation accuracy for metrics\n4. Test report generation functionality\n5. Verify data visualization components\n6. Test date range selection and filtering\n7. Validate export functionality\n8. Test performance with large datasets",
-        "priority": "low",
+        "status": "pending",
         "dependencies": [
           4,
           8
         ],
-        "status": "pending",
+        "priority": "low",
+        "details": "Implement analytics and reporting system:\n1. Create data collection pipelines:\n   - Google Search Console API integration for impressions/clicks\n   - Social media engagement metrics collection\n   - Token usage tracking\n   - Time savings calculation\n2. Build KPI dashboards:\n   - Implement chart components using Recharts or Chart.js\n   - Create summary metrics cards\n   - Add trend indicators and comparisons\n3. Implement reporting functionality:\n   - Create scheduled report generation\n   - Build export to CSV/PDF options\n   - Implement email delivery of reports\n4. Add custom date range selection\n5. Implement data aggregation and filtering\n\nExample Google Search Console integration:\n```typescript\nimport { google } from 'googleapis';\n\nexport async function fetchSearchConsoleData(siteUrl, startDate, endDate) {\n  // Initialize the Search Console API client\n  const searchconsole = google.searchconsole('v1');\n  \n  // Authenticate with service account or OAuth\n  const auth = new google.auth.GoogleAuth({\n    keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,\n    scopes: ['https://www.googleapis.com/auth/webmasters'],\n  });\n  \n  const authClient = await auth.getClient();\n  google.options({ auth: authClient });\n  \n  // Query Search Console data\n  const response = await searchconsole.searchanalytics.query({\n    siteUrl: siteUrl,\n    requestBody: {\n      startDate: startDate,\n      endDate: endDate,\n      dimensions: ['query', 'page'],\n      rowLimit: 500,\n    },\n  });\n  \n  return response.data;\n}\n\nexport function calculateImpressionGrowth(currentData, previousData) {\n  const currentImpressions = currentData.rows.reduce(\n    (sum, row) => sum + row.impressions, 0\n  );\n  \n  const previousImpressions = previousData.rows.reduce(\n    (sum, row) => sum + row.impressions, 0\n  );\n  \n  const growthRate = ((currentImpressions - previousImpressions) / previousImpressions) * 100;\n  \n  return {\n    current: currentImpressions,\n    previous: previousImpressions,\n    growth: growthRate,\n    target: 25, // 25% growth target from PRD\n    status: growthRate >= 25 ? 'on_target' : 'below_target',\n  };\n}\n```\n\nRedis Integration for Analytics:\n1. Use Vercel KV (Redis-compatible) as the primary data store for analytics\n2. Implement user-scoped caching with key pattern `user:{user_id}:*`\n3. Set up task queue for background analytics processing\n4. Ensure multi-tenant security with Clerk user IDs",
+        "testStrategy": "1. Unit tests for data collection functions\n2. Test API integrations with mock responses\n3. Validate calculation accuracy for metrics\n4. Test report generation functionality\n5. Verify data visualization components\n6. Test date range selection and filtering\n7. Validate export functionality\n8. Test performance with large datasets\n9. Test Redis integration with Vercel KV\n10. Verify user-scoped data isolation in multi-tenant environment\n11. Test background task processing for analytics",
         "subtasks": [
           {
             "id": 1,
@@ -1055,12 +1086,12 @@
           },
           {
             "id": 3,
-            "title": "Implement data storage solution",
-            "description": "Set up a database or data warehouse to store collected analytics data",
+            "title": "Implement data storage solution with Vercel KV",
+            "description": "Set up Vercel KV (Redis-compatible) to store collected analytics data",
             "dependencies": [
               2
             ],
-            "details": "Choose appropriate database technology, design schema, and implement data partitioning and indexing for optimal performance.",
+            "details": "Implement Vercel KV for analytics data storage using the @vercel/kv package. Design key patterns with user-scoped namespacing (user:{user_id}:*) to ensure multi-tenant security with Clerk user IDs.",
             "status": "pending"
           },
           {
@@ -1070,7 +1101,7 @@
             "dependencies": [
               3
             ],
-            "details": "Implement business logic for KPI calculations, ensure accuracy, and optimize for performance.",
+            "details": "Implement business logic for KPI calculations, ensure accuracy, and optimize for performance. Utilize Vercel KV for caching calculated metrics.",
             "status": "pending"
           },
           {
@@ -1102,7 +1133,7 @@
               5,
               6
             ],
-            "details": "Integrate with existing authentication system, implement role-based access control, and ensure data privacy compliance.",
+            "details": "Integrate with existing Clerk authentication system, implement role-based access control, and ensure data privacy compliance.",
             "status": "pending"
           },
           {
@@ -1119,6 +1150,31 @@
               7
             ],
             "details": "Perform unit testing, integration testing, and load testing. Optimize queries, caching mechanisms, and overall system performance.",
+            "status": "pending"
+          },
+          {
+            "id": 9,
+            "title": "Implement background task queue for analytics processing",
+            "description": "Set up a task queue system for background processing of analytics data",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement a background task queue using Vercel KV for processing analytics data asynchronously. This will improve performance and user experience by offloading intensive calculations.",
+            "status": "pending"
+          },
+          {
+            "id": 10,
+            "title": "Configure Vercel deployment for analytics system",
+            "description": "Prepare and configure the analytics system for deployment on Vercel",
+            "dependencies": [
+              3,
+              4,
+              5,
+              6,
+              7,
+              9
+            ],
+            "details": "Configure environment variables, set up Vercel KV connections, and ensure proper integration with the existing Vercel deployment pipeline.",
             "status": "pending"
           }
         ]
@@ -1431,7 +1487,7 @@
     ],
     "metadata": {
       "created": "2025-06-17T20:51:38.398Z",
-      "updated": "2025-06-22T23:53:10.805Z",
+      "updated": "2025-06-23T15:53:30.409Z",
       "description": "Tasks for master context"
     }
   }
