@@ -33,6 +33,9 @@ from camel.agents import ChatAgent
 from camel.messages import BaseMessage
 from camel.configs import ChatGPTConfig
 
+# LangChain integration
+from .langchain_integration import get_nlp_engine, LangChainExecution
+
 # Model pricing per 1K tokens (input/output)
 MODEL_PRICING = {
     "gpt-4o": {"input": 0.005, "output": 0.015, "provider": "openai"},
@@ -70,6 +73,53 @@ class TaskExecution:
     status: str = "running"  # running, completed, failed
     result: Optional[Dict[str, Any]] = None
 
+@dataclass
+class WorkflowTask:
+    """Individual task within a workflow"""
+    id: str
+    title: str
+    description: str
+    agent_type: Optional[str] = None
+    agent_id: Optional[str] = None
+    dependencies: List[str] = field(default_factory=list)  # Task IDs this depends on
+    status: str = "pending"  # pending, assigned, running, completed, failed
+    priority: int = 5  # 1-10, higher is more important
+    estimated_duration: Optional[int] = None  # minutes
+    execution_id: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    assigned_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+@dataclass
+class Workflow:
+    """Multi-agent workflow orchestration"""
+    id: str
+    title: str
+    description: str
+    user_id: str
+    tasks: List[WorkflowTask] = field(default_factory=list)
+    status: str = "created"  # created, planning, running, completed, failed, cancelled
+    orchestration_strategy: str = "optimal"  # optimal, parallel, sequential, custom
+    max_parallel_tasks: int = 3
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    total_cost: float = 0.0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class OrchestrationPlan:
+    """Execution plan for a workflow"""
+    workflow_id: str
+    execution_order: List[List[str]]  # List of parallel execution groups
+    agent_assignments: Dict[str, str]  # task_id -> agent_id
+    estimated_duration: int  # total minutes
+    estimated_cost: float
+    resource_requirements: Dict[str, int]  # agent_type -> count
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
 @dataclass 
 class Agent:
     """Dynamic tool-enabled agent with cost tracking"""
@@ -96,6 +146,11 @@ class Agent:
     camel_agent: Optional[ChatAgent] = None
     toolkit_instances: List[Any] = field(default_factory=list)
     
+    # LangChain NLP capabilities
+    nlp_enabled: bool = False
+    nlp_capabilities: List[str] = field(default_factory=list)  # Available NLP capabilities
+    nlp_executions: List[LangChainExecution] = field(default_factory=list)  # NLP execution history
+    
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
@@ -114,6 +169,9 @@ class Agent:
             "total_output_tokens": self.total_output_tokens,
             "total_cost": round(self.total_cost, 4),
             "tasks_completed": self.tasks_completed,
+            "nlp_enabled": self.nlp_enabled,
+            "nlp_capabilities": self.nlp_capabilities,
+            "nlp_executions_count": len(self.nlp_executions)
         }
     
     async def initialize_camel_agent(self):
@@ -255,6 +313,114 @@ class Agent:
             logger.error(f"Task execution failed for {self.name}: {e}")
             raise
 
+    async def enable_nlp_capabilities(self, capabilities: Optional[List[str]] = None):
+        """Enable LangChain NLP capabilities for this agent"""
+        try:
+            nlp_engine = await get_nlp_engine()
+            
+            # If no specific capabilities requested, enable all available
+            if capabilities is None:
+                available_capabilities = nlp_engine.get_capabilities()
+                self.nlp_capabilities = list(available_capabilities.keys())
+            else:
+                # Validate requested capabilities
+                available_capabilities = nlp_engine.get_capabilities()
+                valid_capabilities = []
+                for cap in capabilities:
+                    if cap in available_capabilities:
+                        valid_capabilities.append(cap)
+                    else:
+                        logger.warning(f"Unknown NLP capability: {cap}")
+                self.nlp_capabilities = valid_capabilities
+            
+            self.nlp_enabled = True
+            logger.info(f"Enabled {len(self.nlp_capabilities)} NLP capabilities for agent {self.name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to enable NLP capabilities for agent {self.name}: {e}")
+            self.nlp_enabled = False
+    
+    async def execute_nlp_task(self, task_type: str, **kwargs) -> Optional[LangChainExecution]:
+        """Execute an NLP task using LangChain"""
+        if not self.nlp_enabled:
+            logger.warning(f"NLP not enabled for agent {self.name}")
+            return None
+            
+        if task_type not in self.nlp_capabilities:
+            logger.warning(f"NLP capability '{task_type}' not available for agent {self.name}")
+            return None
+        
+        try:
+            nlp_engine = await get_nlp_engine()
+            
+            # Execute the appropriate NLP task
+            if task_type == "text_summarization":
+                execution = await nlp_engine.summarize_text(
+                    text=kwargs.get("text", ""),
+                    agent_id=self.id,
+                    max_length=kwargs.get("max_length", 150),
+                    style=kwargs.get("style", "concise")
+                )
+            elif task_type == "sentiment_analysis":
+                execution = await nlp_engine.analyze_sentiment(
+                    text=kwargs.get("text", ""),
+                    agent_id=self.id
+                )
+            elif task_type == "language_translation":
+                execution = await nlp_engine.translate_text(
+                    text=kwargs.get("text", ""),
+                    target_language=kwargs.get("target_language", "english"),
+                    agent_id=self.id,
+                    source_language=kwargs.get("source_language", "auto")
+                )
+            else:
+                logger.warning(f"NLP task type '{task_type}' not yet implemented")
+                return None
+            
+            # Track the execution
+            self.nlp_executions.append(execution)
+            self.total_cost += execution.cost
+            
+            logger.info(f"Agent {self.name} completed NLP task '{task_type}' (cost: ${execution.cost:.4f})")
+            return execution
+            
+        except Exception as e:
+            logger.error(f"NLP task '{task_type}' failed for agent {self.name}: {e}")
+            return None
+    
+    def get_nlp_summary(self) -> Dict[str, Any]:
+        """Get summary of NLP usage for this agent"""
+        if not self.nlp_enabled:
+            return {"nlp_enabled": False}
+        
+        total_nlp_cost = sum(exec.cost for exec in self.nlp_executions)
+        total_nlp_tokens = sum(exec.tokens_used for exec in self.nlp_executions)
+        
+        capability_usage = {}
+        for exec in self.nlp_executions:
+            cap = exec.capability
+            if cap not in capability_usage:
+                capability_usage[cap] = {"count": 0, "cost": 0.0, "avg_time": 0.0}
+            capability_usage[cap]["count"] += 1
+            capability_usage[cap]["cost"] += exec.cost
+            capability_usage[cap]["avg_time"] += exec.execution_time
+        
+        # Calculate averages
+        for cap_stats in capability_usage.values():
+            if cap_stats["count"] > 0:
+                cap_stats["avg_time"] = cap_stats["avg_time"] / cap_stats["count"]
+                cap_stats["cost"] = round(cap_stats["cost"], 4)
+                cap_stats["avg_time"] = round(cap_stats["avg_time"], 2)
+        
+        return {
+            "nlp_enabled": True,
+            "available_capabilities": self.nlp_capabilities,
+            "total_nlp_executions": len(self.nlp_executions),
+            "total_nlp_cost": round(total_nlp_cost, 4),
+            "total_nlp_tokens": total_nlp_tokens,
+            "capability_usage": capability_usage
+        }
+
 # Predefined agent templates
 AGENT_TEMPLATES = {
     "ceo": AgentTemplate(
@@ -350,6 +516,8 @@ class AutonomicaWorkforce:
         self.agents: Dict[str, Agent] = {}
         self.agent_templates = AGENT_TEMPLATES
         self.task_executions: List[TaskExecution] = []
+        self.workflows: Dict[str, Workflow] = {}
+        self.orchestration_plans: Dict[str, OrchestrationPlan] = {}
         self.total_cost: float = 0.0
         
     async def initialize(self):
@@ -458,6 +626,48 @@ class AutonomicaWorkforce:
         # For now, route through CEO - in future, CEO could intelligently delegate
         return await ceo.execute_task(task_spec)
     
+    async def assign_task_to_agent(
+        self, 
+        agent_id: str, 
+        task_id: str, 
+        task_description: str, 
+        task_metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Assign a specific task to a specific agent and return execution ID"""
+        
+        agent = self.get_agent(agent_id)
+        if not agent:
+            raise ValueError(f"Agent {agent_id} not found")
+        
+        if agent.status not in ["idle", "ready"]:
+            logger.warning(f"Agent {agent.name} is {agent.status}, task may be queued")
+        
+        try:
+            # Prepare task specification for OWL execution
+            task_spec = {
+                "task_id": task_id,
+                "task_type": task_metadata.get("priority", "medium") if task_metadata else "medium",
+                "inputs": {
+                    "user_message": task_description,
+                    "metadata": task_metadata or {}
+                }
+            }
+            
+            # Execute task with the specific agent
+            execution = await agent.execute_task(task_spec)
+            
+            # Track the execution
+            self.task_executions.append(execution)
+            self.total_cost += execution.cost
+            
+            logger.info(f"Task {task_id} assigned to agent {agent.name} (cost: ${execution.cost:.4f})")
+            
+            return execution.id  # Return execution ID for tracking
+            
+        except Exception as e:
+            logger.error(f"Failed to assign task {task_id} to agent {agent.name}: {e}")
+            raise
+    
     def get_cost_summary(self) -> Dict[str, Any]:
         """Get comprehensive cost breakdown"""
         summary = {
@@ -501,6 +711,648 @@ class AutonomicaWorkforce:
     def get_model_pricing(self) -> Dict[str, Dict[str, Any]]:
         """Get current model pricing information"""
         return MODEL_PRICING.copy()
+
+    # Agent Orchestration Logic for Task 2.8
+    
+    async def create_workflow(
+        self,
+        title: str,
+        description: str,
+        user_id: str,
+        workflow_tasks: List[Dict[str, Any]],
+        orchestration_strategy: str = "optimal",
+        max_parallel_tasks: int = 3,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Workflow:
+        """Create a new multi-agent workflow"""
+        
+        workflow_id = str(uuid.uuid4())
+        
+        # Convert task definitions to WorkflowTask objects
+        tasks = []
+        for i, task_def in enumerate(workflow_tasks):
+            task = WorkflowTask(
+                id=f"{workflow_id}-task-{i+1}",
+                title=task_def.get("title", f"Task {i+1}"),
+                description=task_def.get("description", ""),
+                agent_type=task_def.get("agent_type"),
+                dependencies=task_def.get("dependencies", []),
+                priority=task_def.get("priority", 5),
+                estimated_duration=task_def.get("estimated_duration")
+            )
+            tasks.append(task)
+        
+        workflow = Workflow(
+            id=workflow_id,
+            title=title,
+            description=description,
+            user_id=user_id,
+            tasks=tasks,
+            orchestration_strategy=orchestration_strategy,
+            max_parallel_tasks=max_parallel_tasks,
+            metadata=metadata or {}
+        )
+        
+        self.workflows[workflow_id] = workflow
+        logger.info(f"Created workflow '{title}' with {len(tasks)} tasks for user {user_id}")
+        
+        return workflow
+    
+    async def create_orchestration_plan(self, workflow_id: str) -> OrchestrationPlan:
+        """Create an optimal execution plan for a workflow"""
+        
+        workflow = self.workflows.get(workflow_id)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_id} not found")
+        
+        # Get user's available agents
+        user_agents = [a for a in self.agents.values() if a.user_id == workflow.user_id]
+        
+        if not user_agents:
+            raise ValueError(f"No agents available for user {workflow.user_id}")
+        
+        # Analyze task dependencies and create execution groups
+        execution_order = self._plan_execution_order(workflow.tasks, workflow.max_parallel_tasks)
+        
+        # Assign optimal agents to tasks
+        agent_assignments = await self._assign_agents_to_tasks(workflow.tasks, user_agents)
+        
+        # Calculate estimates
+        estimated_duration, estimated_cost = self._calculate_workflow_estimates(
+            workflow.tasks, agent_assignments
+        )
+        
+        # Calculate resource requirements
+        resource_requirements = self._calculate_resource_requirements(workflow.tasks)
+        
+        plan = OrchestrationPlan(
+            workflow_id=workflow_id,
+            execution_order=execution_order,
+            agent_assignments=agent_assignments,
+            estimated_duration=estimated_duration,
+            estimated_cost=estimated_cost,
+            resource_requirements=resource_requirements
+        )
+        
+        self.orchestration_plans[workflow_id] = plan
+        workflow.status = "planning"
+        
+        logger.info(f"Created orchestration plan for workflow {workflow_id}: "
+                   f"{estimated_duration}min, ${estimated_cost:.2f}")
+        
+        return plan
+    
+    def _plan_execution_order(self, tasks: List[WorkflowTask], max_parallel: int) -> List[List[str]]:
+        """Plan optimal execution order respecting dependencies"""
+        
+        execution_groups = []
+        completed_tasks = set()
+        remaining_tasks = {task.id: task for task in tasks}
+        
+        while remaining_tasks:
+            # Find tasks with no pending dependencies
+            ready_tasks = []
+            for task_id, task in remaining_tasks.items():
+                if all(dep in completed_tasks for dep in task.dependencies):
+                    ready_tasks.append(task_id)
+            
+            if not ready_tasks:
+                # Circular dependency or other issue
+                logger.warning(f"No ready tasks found. Remaining: {list(remaining_tasks.keys())}")
+                break
+            
+            # Sort by priority and take up to max_parallel
+            ready_tasks.sort(key=lambda tid: remaining_tasks[tid].priority, reverse=True)
+            
+            # Create execution group
+            group = ready_tasks[:max_parallel]
+            execution_groups.append(group)
+            
+            # Mark as scheduled
+            for task_id in group:
+                completed_tasks.add(task_id)
+                del remaining_tasks[task_id]
+        
+        return execution_groups
+    
+    async def _assign_agents_to_tasks(
+        self, 
+        tasks: List[WorkflowTask], 
+        available_agents: List[Agent]
+    ) -> Dict[str, str]:
+        """Assign optimal agents to workflow tasks"""
+        
+        assignments = {}
+        agent_workload = {agent.id: 0 for agent in available_agents}
+        
+        # Sort tasks by priority
+        sorted_tasks = sorted(tasks, key=lambda t: t.priority, reverse=True)
+        
+        for task in sorted_tasks:
+            best_agent = None
+            best_score = -1
+            
+            # Find best agent for this task
+            for agent in available_agents:
+                score = self._calculate_agent_task_score(agent, task)
+                
+                # Prefer less loaded agents
+                load_penalty = agent_workload[agent.id] * 0.1
+                adjusted_score = score - load_penalty
+                
+                if adjusted_score > best_score:
+                    best_score = adjusted_score
+                    best_agent = agent
+            
+            if best_agent:
+                assignments[task.id] = best_agent.id
+                agent_workload[best_agent.id] += task.estimated_duration or 10
+                task.agent_id = best_agent.id
+                task.agent_type = best_agent.type
+        
+        return assignments
+    
+    def _calculate_agent_task_score(self, agent: Agent, task: WorkflowTask) -> float:
+        """Calculate how well an agent matches a task"""
+        
+        score = 0.0
+        
+        # Type match bonus
+        if task.agent_type and agent.type == task.agent_type:
+            score += 10.0
+        
+        # Capability match
+        task_keywords = task.description.lower().split()
+        capability_matches = sum(1 for cap in agent.capabilities 
+                               if any(keyword in cap.lower() for keyword in task_keywords))
+        score += capability_matches * 2.0
+        
+        # Performance history bonus
+        if agent.tasks_completed > 0:
+            success_rate = min(agent.tasks_completed / max(agent.tasks_completed + 1, 1), 1.0)
+            score += success_rate * 3.0
+        
+        # Model quality bonus (higher for better models)
+        if "gpt-4" in agent.model.lower():
+            score += 2.0
+        elif "claude" in agent.model.lower():
+            score += 2.5
+        
+        # Availability bonus
+        if agent.status == "idle":
+            score += 5.0
+        elif agent.status == "busy":
+            score -= 2.0
+        
+        return score
+    
+    def _calculate_workflow_estimates(
+        self, 
+        tasks: List[WorkflowTask], 
+        assignments: Dict[str, str]
+    ) -> Tuple[int, float]:
+        """Calculate estimated duration and cost for workflow"""
+        
+        total_duration = 0
+        total_cost = 0.0
+        
+        for task in tasks:
+            # Estimate duration
+            duration = task.estimated_duration or 10  # default 10 minutes
+            total_duration = max(total_duration, duration)  # Assuming parallel execution
+            
+            # Estimate cost
+            if task.agent_id and task.agent_id in [a.id for a in self.agents.values()]:
+                agent = self.agents[task.agent_id]
+                model_pricing = MODEL_PRICING.get(agent.model, {"input": 0.001, "output": 0.002})
+                
+                # Rough cost estimate: 500 input + 300 output tokens per task
+                estimated_cost = (500 * model_pricing["input"] + 300 * model_pricing["output"]) / 1000
+                total_cost += estimated_cost
+        
+        return total_duration, total_cost
+    
+    def _calculate_resource_requirements(self, tasks: List[WorkflowTask]) -> Dict[str, int]:
+        """Calculate required agent types and counts"""
+        
+        requirements = {}
+        for task in tasks:
+            if task.agent_type:
+                requirements[task.agent_type] = requirements.get(task.agent_type, 0) + 1
+            else:
+                requirements["general"] = requirements.get("general", 0) + 1
+        
+        return requirements
+    
+    async def execute_workflow(self, workflow_id: str) -> bool:
+        """Execute a workflow using the orchestration plan"""
+        
+        workflow = self.workflows.get(workflow_id)
+        plan = self.orchestration_plans.get(workflow_id)
+        
+        if not workflow or not plan:
+            raise ValueError(f"Workflow {workflow_id} or its plan not found")
+        
+        workflow.status = "running"
+        workflow.started_at = datetime.utcnow()
+        
+        logger.info(f"Starting execution of workflow '{workflow.title}'")
+        
+        try:
+            for group_index, task_group in enumerate(plan.execution_order):
+                logger.info(f"Executing group {group_index + 1}: {len(task_group)} tasks")
+                
+                # Execute tasks in parallel within the group
+                group_tasks = []
+                for task_id in task_group:
+                    task = next(t for t in workflow.tasks if t.id == task_id)
+                    if task.agent_id:
+                        group_tasks.append(self._execute_workflow_task(task, workflow_id))
+                
+                # Wait for all tasks in group to complete
+                if group_tasks:
+                    await asyncio.gather(*group_tasks, return_exceptions=True)
+            
+            # Check if all tasks completed successfully
+            failed_tasks = [t for t in workflow.tasks if t.status == "failed"]
+            
+            if failed_tasks:
+                workflow.status = "failed"
+                logger.error(f"Workflow {workflow_id} failed: {len(failed_tasks)} tasks failed")
+                return False
+            else:
+                workflow.status = "completed"
+                workflow.completed_at = datetime.utcnow()
+                logger.info(f"Workflow '{workflow.title}' completed successfully")
+                return True
+                
+        except Exception as e:
+            workflow.status = "failed"
+            logger.error(f"Workflow {workflow_id} execution failed: {e}")
+            return False
+    
+    async def _execute_workflow_task(self, task: WorkflowTask, workflow_id: str) -> bool:
+        """Execute a single task within a workflow"""
+        
+        try:
+            task.status = "running"
+            task.started_at = datetime.utcnow()
+            
+            agent = self.agents.get(task.agent_id)
+            if not agent:
+                raise ValueError(f"Agent {task.agent_id} not found")
+            
+            # Prepare task spec with workflow context
+            task_spec = {
+                "task_id": task.id,
+                "workflow_id": workflow_id,
+                "task_type": "workflow_task",
+                "inputs": {
+                    "user_message": f"Workflow Task: {task.title}\n\nDescription: {task.description}",
+                    "metadata": {
+                        "workflow_id": workflow_id,
+                        "task_id": task.id,
+                        "priority": task.priority
+                    }
+                }
+            }
+            
+            # Execute the task
+            execution = await agent.execute_task(task_spec)
+            
+            # Update task status
+            task.status = "completed"
+            task.completed_at = datetime.utcnow()
+            task.execution_id = execution.id
+            task.result = execution.result
+            
+            # Track execution
+            self.task_executions.append(execution)
+            self.workflows[workflow_id].total_cost += execution.cost
+            
+            logger.info(f"Workflow task {task.id} completed (cost: ${execution.cost:.4f})")
+            return True
+            
+        except Exception as e:
+            task.status = "failed"
+            task.completed_at = datetime.utcnow()
+            task.result = {"error": str(e)}
+            logger.error(f"Workflow task {task.id} failed: {e}")
+            return False
+    
+    def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
+        """Get comprehensive status of a workflow"""
+        
+        workflow = self.workflows.get(workflow_id)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_id} not found")
+        
+        # Calculate progress
+        total_tasks = len(workflow.tasks)
+        completed_tasks = len([t for t in workflow.tasks if t.status == "completed"])
+        failed_tasks = len([t for t in workflow.tasks if t.status == "failed"])
+        running_tasks = len([t for t in workflow.tasks if t.status == "running"])
+        
+        progress = completed_tasks / total_tasks if total_tasks > 0 else 0
+        
+        return {
+            "workflow_id": workflow.id,
+            "title": workflow.title,
+            "status": workflow.status,
+            "progress": round(progress, 2),
+            "total_tasks": total_tasks,
+            "completed_tasks": completed_tasks,
+            "failed_tasks": failed_tasks,
+            "running_tasks": running_tasks,
+            "total_cost": round(workflow.total_cost, 4),
+            "created_at": workflow.created_at.isoformat(),
+            "started_at": workflow.started_at.isoformat() if workflow.started_at else None,
+            "completed_at": workflow.completed_at.isoformat() if workflow.completed_at else None,
+            "tasks": [
+                {
+                    "id": task.id,
+                    "title": task.title,
+                    "status": task.status,
+                    "agent_id": task.agent_id,
+                    "agent_name": self.agents[task.agent_id].name if task.agent_id and task.agent_id in self.agents else None,
+                    "started_at": task.started_at.isoformat() if task.started_at else None,
+                    "completed_at": task.completed_at.isoformat() if task.completed_at else None
+                }
+                for task in workflow.tasks
+            ]
+        }
+    
+    def get_user_workflows(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all workflows for a specific user"""
+        
+        user_workflows = [wf for wf in self.workflows.values() if wf.user_id == user_id]
+        
+        return [
+            {
+                "id": wf.id,
+                "title": wf.title,
+                "description": wf.description,
+                "status": wf.status,
+                "task_count": len(wf.tasks),
+                "total_cost": round(wf.total_cost, 4),
+                "created_at": wf.created_at.isoformat(),
+                "completed_at": wf.completed_at.isoformat() if wf.completed_at else None
+            }
+            for wf in user_workflows
+        ]
+
+    # LangChain NLP Integration Methods for Task 2.9
+    
+    async def enable_agent_nlp(self, agent_id: str, capabilities: Optional[List[str]] = None) -> bool:
+        """Enable LangChain NLP capabilities for a specific agent"""
+        agent = self.get_agent(agent_id)
+        if not agent:
+            logger.warning(f"Agent {agent_id} not found")
+            return False
+        
+        try:
+            await agent.enable_nlp_capabilities(capabilities)
+            logger.info(f"Enabled NLP capabilities for agent {agent.name}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to enable NLP for agent {agent.name}: {e}")
+            return False
+    
+    async def bulk_enable_nlp(
+        self, 
+        user_id: Optional[str] = None, 
+        agent_types: Optional[List[str]] = None,
+        capabilities: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Enable NLP capabilities for multiple agents"""
+        
+        # Filter agents based on criteria
+        target_agents = []
+        for agent in self.agents.values():
+            if user_id and agent.user_id != user_id:
+                continue
+            if agent_types and agent.type not in agent_types:
+                continue
+            target_agents.append(agent)
+        
+        results = {
+            "total_agents": len(target_agents),
+            "enabled_successfully": 0,
+            "failed": 0,
+            "agent_results": []
+        }
+        
+        for agent in target_agents:
+            try:
+                await agent.enable_nlp_capabilities(capabilities)
+                results["enabled_successfully"] += 1
+                results["agent_results"].append({
+                    "agent_id": agent.id,
+                    "agent_name": agent.name,
+                    "status": "success",
+                    "nlp_capabilities": agent.nlp_capabilities
+                })
+            except Exception as e:
+                results["failed"] += 1
+                results["agent_results"].append({
+                    "agent_id": agent.id,
+                    "agent_name": agent.name,
+                    "status": "failed",
+                    "error": str(e)
+                })
+        
+        logger.info(f"Bulk NLP enablement: {results['enabled_successfully']}/{results['total_agents']} agents")
+        return results
+    
+    async def execute_nlp_workflow(
+        self, 
+        workflow_tasks: List[Dict[str, Any]], 
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Execute a workflow of NLP tasks across multiple agents"""
+        
+        workflow_id = str(uuid.uuid4())
+        start_time = datetime.utcnow()
+        
+        results = {
+            "workflow_id": workflow_id,
+            "user_id": user_id,
+            "total_tasks": len(workflow_tasks),
+            "completed_tasks": 0,
+            "failed_tasks": 0,
+            "total_cost": 0.0,
+            "task_results": [],
+            "start_time": start_time.isoformat()
+        }
+        
+        # Get user's NLP-enabled agents
+        nlp_agents = [
+            agent for agent in self.agents.values()
+            if agent.user_id == user_id and agent.nlp_enabled
+        ]
+        
+        if not nlp_agents:
+            results["error"] = "No NLP-enabled agents found for user"
+            return results
+        
+        # Execute NLP tasks
+        for i, task in enumerate(workflow_tasks):
+            task_type = task.get("type")
+            task_data = task.get("data", {})
+            
+            # Select best agent for this task type
+            best_agent = None
+            for agent in nlp_agents:
+                if task_type in agent.nlp_capabilities:
+                    best_agent = agent
+                    break
+            
+            if not best_agent:
+                results["failed_tasks"] += 1
+                results["task_results"].append({
+                    "task_index": i,
+                    "task_type": task_type,
+                    "status": "failed",
+                    "error": f"No agent available for task type: {task_type}"
+                })
+                continue
+            
+            try:
+                execution = await best_agent.execute_nlp_task(task_type, **task_data)
+                
+                if execution and execution.status == "success":
+                    results["completed_tasks"] += 1
+                    results["total_cost"] += execution.cost
+                    results["task_results"].append({
+                        "task_index": i,
+                        "task_type": task_type,
+                        "agent_id": best_agent.id,
+                        "agent_name": best_agent.name,
+                        "status": "success",
+                        "execution_id": execution.id,
+                        "cost": execution.cost,
+                        "execution_time": execution.execution_time,
+                        "output_summary": str(execution.output_data)[:200] + "..." if len(str(execution.output_data)) > 200 else str(execution.output_data)
+                    })
+                else:
+                    results["failed_tasks"] += 1
+                    results["task_results"].append({
+                        "task_index": i,
+                        "task_type": task_type,
+                        "status": "failed",
+                        "error": execution.error_message if execution else "Unknown error"
+                    })
+                    
+            except Exception as e:
+                results["failed_tasks"] += 1
+                results["task_results"].append({
+                    "task_index": i,
+                    "task_type": task_type,
+                    "status": "failed",
+                    "error": str(e)
+                })
+        
+        results["end_time"] = datetime.utcnow().isoformat()
+        results["total_cost"] = round(results["total_cost"], 4)
+        
+        logger.info(f"NLP workflow {workflow_id} completed: {results['completed_tasks']}/{results['total_tasks']} tasks")
+        return results
+    
+    def get_nlp_analytics(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get comprehensive NLP usage analytics"""
+        
+        # Filter agents based on user
+        agents = [a for a in self.agents.values() if not user_id or a.user_id == user_id]
+        nlp_agents = [a for a in agents if a.nlp_enabled]
+        
+        if not nlp_agents:
+            return {
+                "total_agents": len(agents),
+                "nlp_enabled_agents": 0,
+                "analytics": {}
+            }
+        
+        # Aggregate statistics
+        total_nlp_executions = sum(len(agent.nlp_executions) for agent in nlp_agents)
+        total_nlp_cost = sum(sum(exec.cost for exec in agent.nlp_executions) for agent in nlp_agents)
+        total_nlp_tokens = sum(sum(exec.tokens_used for exec in agent.nlp_executions) for agent in nlp_agents)
+        
+        # Capability usage across all agents
+        capability_stats = {}
+        for agent in nlp_agents:
+            for exec in agent.nlp_executions:
+                cap = exec.capability
+                if cap not in capability_stats:
+                    capability_stats[cap] = {
+                        "total_executions": 0,
+                        "total_cost": 0.0,
+                        "total_tokens": 0,
+                        "avg_execution_time": 0.0,
+                        "success_rate": 0.0
+                    }
+                
+                capability_stats[cap]["total_executions"] += 1
+                capability_stats[cap]["total_cost"] += exec.cost
+                capability_stats[cap]["total_tokens"] += exec.tokens_used
+                capability_stats[cap]["avg_execution_time"] += exec.execution_time
+                
+                if exec.status == "success":
+                    capability_stats[cap]["success_rate"] += 1
+        
+        # Calculate averages and success rates
+        for cap, stats in capability_stats.items():
+            if stats["total_executions"] > 0:
+                stats["avg_execution_time"] /= stats["total_executions"]
+                stats["success_rate"] = (stats["success_rate"] / stats["total_executions"]) * 100
+                stats["total_cost"] = round(stats["total_cost"], 4)
+                stats["avg_execution_time"] = round(stats["avg_execution_time"], 2)
+                stats["success_rate"] = round(stats["success_rate"], 1)
+        
+        # Agent performance breakdown
+        agent_performance = []
+        for agent in nlp_agents:
+            agent_summary = agent.get_nlp_summary()
+            agent_performance.append({
+                "agent_id": agent.id,
+                "agent_name": agent.name,
+                "agent_type": agent.type,
+                **agent_summary
+            })
+        
+        return {
+            "user_id": user_id,
+            "total_agents": len(agents),
+            "nlp_enabled_agents": len(nlp_agents),
+            "total_nlp_executions": total_nlp_executions,
+            "total_nlp_cost": round(total_nlp_cost, 4),
+            "total_nlp_tokens": total_nlp_tokens,
+            "capability_analytics": capability_stats,
+            "agent_performance": agent_performance,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    
+    async def get_available_nlp_capabilities(self) -> Dict[str, Any]:
+        """Get all available LangChain NLP capabilities"""
+        try:
+            nlp_engine = await get_nlp_engine()
+            capabilities = nlp_engine.get_capabilities()
+            
+            return {
+                "total_capabilities": len(capabilities),
+                "capabilities": {
+                    cap_name: {
+                        "name": cap.name,
+                        "description": cap.description,
+                        "input_type": cap.input_type,
+                        "output_type": cap.output_type,
+                        "required_tools": cap.required_tools
+                    }
+                    for cap_name, cap in capabilities.items()
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get NLP capabilities: {e}")
+            return {"error": str(e)}
 
     async def shutdown(self):
         """Cleanup resources during shutdown"""
