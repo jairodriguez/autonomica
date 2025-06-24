@@ -47,15 +47,28 @@ export default function HomePage() {
           {/* Navigation to Projects */}
           <div className="flex justify-center space-x-4 mb-8">
             {isSignedIn ? (
-              <Link 
-                href="/projects"
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition-colors"
-              >
-                🏗️ Manage Projects & Agents
-              </Link>
+              <>
+                <Link 
+                  href="/projects"
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+                >
+                  🏗️ Manage Projects & Agents
+                </Link>
+                <Link 
+                  href="/dashboard"
+                  className="inline-flex items-center px-6 py-3 border border-gray-600 text-base font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors"
+                >
+                  📊 Analytics Dashboard
+                </Link>
+              </>
             ) : (
-              <div className="inline-flex items-center px-6 py-3 border border-gray-600 text-base font-medium rounded-md text-gray-400 bg-gray-700 cursor-not-allowed">
-                🔒 Sign in to Manage Projects
+              <div className="space-x-4">
+                <div className="inline-flex items-center px-6 py-3 border border-gray-600 text-base font-medium rounded-md text-gray-400 bg-gray-700 cursor-not-allowed">
+                  🔒 Sign in to Manage Projects
+                </div>
+                <div className="inline-flex items-center px-6 py-3 border border-gray-600 text-base font-medium rounded-md text-gray-400 bg-gray-700 cursor-not-allowed">
+                  🔒 Sign in for Dashboard
+                </div>
               </div>
             )}
             <button className="inline-flex items-center px-6 py-3 border border-gray-600 text-base font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors">

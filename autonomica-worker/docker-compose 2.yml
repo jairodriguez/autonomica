@@ -34,7 +34,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-      
+      target: production
     container_name: ${WORKER_CONTAINER_NAME}
     depends_on:
       redis:
@@ -116,7 +116,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-      
+      target: production
     container_name: ${CELERY_CONTAINER_NAME}
     command: celery -A worker.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${WORKER_CONCURRENCY:-4} --max-tasks-per-child=1000
     depends_on:
@@ -187,7 +187,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-      
+      target: production
     container_name: ${FLOWER_CONTAINER_NAME}
     command: celery -A worker.celery_app flower --port=5555 --broker=redis://redis:6379/1 --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-autonomica123}
     ports:

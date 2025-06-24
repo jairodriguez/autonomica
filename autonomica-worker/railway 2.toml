@@ -1,0 +1,169 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Main Worker Service - FastAPI + Background Processing
+[[services]]
+name = "autonomica-worker"
+
+[services.env]
+# Worker Configuration
+WORKER_NAME = "autonomica-worker"
+LOG_LEVEL = "INFO"
+HEALTH_CHECK_PORT = "8080"
+RAILWAY_ENVIRONMENT = "production"
+
+# Celery Configuration  
+CELERY_WORKER_CONCURRENCY = "4"
+CELERY_TASK_TIME_LIMIT = "1800"
+CELERY_TASK_SOFT_TIME_LIMIT = "1500"
+CELERY_WORKER_PREFETCH_MULTIPLIER = "1"
+CELERY_WORKER_MAX_TASKS_PER_CHILD = "1000"
+
+# Performance Tuning
+MAX_CONCURRENT_TASKS = "10"
+PLAYWRIGHT_TIMEOUT = "30000"
+REQUEST_TIMEOUT = "60"
+
+[services.variables]
+PORT = "8080"
+
+[services.healthcheck]
+path = "/health"
+interval = 30
+timeout = 10
+retries = 3
+startPeriod = 60
+
+[services.resources]
+memory = "1536Mi"  # Increased for Playwright and AI processing
+cpu = 1000        # 1 CPU core
+ephemeralStorage = "2Gi"
+
+[services.autoscaling]
+enabled = true
+minReplicas = 0    # Scale to zero when no tasks
+maxReplicas = 5    # Maximum instances under load
+scaleDownDelay = "5m"
+metrics = [
+  { type = "cpu", target = 70 },
+  { type = "memory", target = 75 }
+]
+
+# Redis Service - Task Queue and Caching
+[[services]]
+name = "autonomica-redis"
+image = "redis:7-alpine"
+
+[services.env]
+REDIS_ARGS = "--maxmemory 512mb --maxmemory-policy allkeys-lru"
+
+[services.variables]
+PORT = "6379"
+
+[services.resources]
+memory = "512Mi"
+cpu = 500
+ephemeralStorage = "1Gi"
+
+[services.volumes]
+redis_data = "/data"
+
+# Celery Worker Service - Dedicated Background Processing
+[[services]]
+name = "autonomica-celery"
+
+[services.env]
+WORKER_NAME = "autonomica-celery-worker"
+LOG_LEVEL = "INFO"
+CELERY_WORKER_TYPE = "celery"
+CELERY_QUEUES = "web_scraping,ai_processing,data_analysis,social_media"
+
+[services.command]
+override = ["celery", "-A", "worker.celery_app", "worker", "--loglevel=info", "--concurrency=4", "--queues=web_scraping,ai_processing,data_analysis,social_media"]
+
+[services.resources]
+memory = "2048Mi"  # Higher memory for heavy processing
+cpu = 1500        # 1.5 CPU cores
+ephemeralStorage = "3Gi"
+
+[services.autoscaling]
+enabled = true
+minReplicas = 0
+maxReplicas = 8    # More workers for background processing
+scaleDownDelay = "3m"
+metrics = [
+  { type = "cpu", target = 80 },
+  { type = "memory", target = 80 }
+]
+
+# Flower Service - Celery Monitoring (Optional)
+[[services]]
+name = "autonomica-flower"
+
+[services.env]
+CELERY_BROKER_URL = "$REDIS_URL"
+FLOWER_PORT = "5555"
+
+[services.command]
+override = ["celery", "-A", "worker.celery_app", "flower", "--port=5555"]
+
+[services.variables]
+PORT = "5555"
+
+[services.resources]
+memory = "256Mi"
+cpu = 250
+ephemeralStorage = "512Mi"
+
+[services.autoscaling]
+enabled = false  # Keep flower always running for monitoring
+
+# Environment Variables Template
+[environments.production]
+REDIS_URL = "${{autonomica-redis.REDIS_URL}}"
+CELERY_BROKER_URL = "${{autonomica-redis.REDIS_URL}}/1"
+CELERY_RESULT_BACKEND = "${{autonomica-redis.REDIS_URL}}/1"
+
+# API Keys (set these in Railway dashboard)
+# OPENAI_API_KEY = ""
+# ANTHROPIC_API_KEY = ""
+# CLERK_SECRET_KEY = ""
+# SEMRUSH_API_KEY = ""
+
+# Vercel KV Integration (optional)
+# KV_REST_API_URL = ""
+# KV_REST_API_TOKEN = ""
+
+[environments.development]
+REDIS_URL = "redis://localhost:6379/0"
+CELERY_BROKER_URL = "redis://localhost:6379/1"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/1"
+LOG_LEVEL = "DEBUG"
+
+# Networking Configuration
+[networking]
+# Allow internal service communication
+allowPublicNetworking = true
+
+# Health Check Configuration
+[healthcheck]
+path = "/health"
+port = 8080
+initialDelaySeconds = 30
+periodSeconds = 30
+timeoutSeconds = 10
+failureThreshold = 3
+successThreshold = 1
+
+# Deployment Strategy
+[deployment]
+strategy = "rolling"
+maxUnavailable = 1
+maxSurge = 1

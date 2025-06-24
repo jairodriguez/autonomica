@@ -17,32 +17,31 @@ interface ChatContainerAIProps {
 }
 
 export default function ChatContainerAI({ 
-  initialMessages = [], 
+  initialMessages = [],
   onFinish,
   onError,
   className = "",
   api = '/api/chat',
   agentContext
 }: ChatContainerAIProps) {
-  const { 
-    messages, 
-    sendMessage, 
-    isLoading, 
-    error 
-  } = useChat({
+  const { messages, isLoading, error } = useChat({
     api,
-    initialMessages,
+    initialMessages: initialMessages.length > 0 ? initialMessages : [
+      {
+        id: '1',
+        role: 'system',
+        content: `You are a helpful AI marketing assistant${agentContext ? ` named ${agentContext.name} (${agentContext.type} - ${agentContext.model})` : ''}. You help users with marketing strategy, content creation, SEO analysis, and campaign planning.`,
+        timestamp: new Date()
+      }
+    ],
     onFinish,
-    onError,
-    agentContext
+    onError
   });
 
   const handleSendMessage = async (content: string) => {
-    try {
-      await sendMessage(content);
-    } catch (err) {
-      console.error('Error sending message:', err);
-    }
+    // TODO: Implement actual message sending
+    // For now, we'll use this as a placeholder
+    console.log('Message to send:', content);
   };
 
   // Determine display info based on agent context
