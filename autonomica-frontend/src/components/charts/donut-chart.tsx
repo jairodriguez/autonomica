@@ -63,7 +63,7 @@ const DEFAULT_COLORS = [
   '#84cc16'  // lime-500
 ];
 
-export default function DonutChart({
+const DonutChartComponent = ({
   data,
   height = 300,
   colors = DEFAULT_COLORS,
@@ -76,7 +76,7 @@ export default function DonutChart({
   className = '',
   centerText,
   centerValue
-}: DonutChartProps) {
+}: DonutChartProps) => {
   const textColor = isDarkTheme ? '#9ca3af' : '#6b7280'; // gray-400 : gray-500
 
   const CustomTooltip = ({ active, payload }: TooltipProps) => {
@@ -188,4 +188,7 @@ export default function DonutChart({
       )}
     </div>
   );
-} 
+};
+
+const DonutChart = React.memo(DonutChartComponent);
+export default DonutChart; 

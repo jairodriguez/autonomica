@@ -9,7 +9,8 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  Brush
 } from 'recharts';
 
 export interface AreaDataPoint {
@@ -26,6 +27,7 @@ export interface AreaChartProps {
   showGrid?: boolean;
   showLegend?: boolean;
   showTooltip?: boolean;
+  showBrush?: boolean;
   dataKey?: string;
   xAxisKey?: string;
   isDarkTheme?: boolean;
@@ -44,7 +46,7 @@ interface TooltipProps {
   label?: string;
 }
 
-export default function AreaChart({
+const AreaChartComponent = ({
   data,
   height = 300,
   color = '#8b5cf6', // Purple-500 to match theme
@@ -52,15 +54,17 @@ export default function AreaChart({
   showGrid = true,
   showLegend = false,
   showTooltip = true,
+  showBrush = false,
   dataKey = 'value',
   xAxisKey = 'name',
   isDarkTheme = true, // Default to dark theme
   className = '',
   stackId,
   type = 'monotone'
-}: AreaChartProps) {
+}: AreaChartProps) => {
   const gridColor = isDarkTheme ? '#374151' : '#e5e7eb'; // gray-700 : gray-200
   const textColor = isDarkTheme ? '#9ca3af' : '#6b7280'; // gray-400 : gray-500
+  const brushFillColor = isDarkTheme ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.2)';
 
   const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     if (active && payload && payload.length) {
@@ -134,8 +138,20 @@ export default function AreaChart({
             dot={{ fill: color, strokeWidth: 2, r: 3 }}
             activeDot={{ r: 5, stroke: color, strokeWidth: 2 }}
           />
+          {showBrush && (
+            <Brush
+              dataKey={xAxisKey}
+              height={30}
+              stroke={color}
+              fill={brushFillColor}
+              tickFormatter={(tick) => (typeof tick === 'string' ? tick.substring(0, 3) : tick)}
+            />
+          )}
         </RechartsAreaChart>
       </ResponsiveContainer>
     </div>
   );
-} 
+};
+
+const AreaChart = React.memo(AreaChartComponent);
+export default AreaChart; 

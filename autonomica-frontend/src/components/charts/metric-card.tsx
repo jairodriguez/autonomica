@@ -20,7 +20,7 @@ export interface MetricCardProps {
   isLoading?: boolean;
 }
 
-export default function MetricCard({
+const MetricCardComponent = ({
   title,
   value,
   change,
@@ -31,7 +31,7 @@ export default function MetricCard({
   className = '',
   subtitle,
   isLoading = false
-}: MetricCardProps) {
+}: MetricCardProps) => {
   const getTrendColor = () => {
     switch (trend) {
       case 'up':
@@ -135,4 +135,7 @@ export default function MetricCard({
       )}
     </div>
   );
-} 
+};
+
+const MetricCard = React.memo(MetricCardComponent);
+export default MetricCard; 

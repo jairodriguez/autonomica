@@ -10,8 +10,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { MetricCard, LineChart, AreaChart, DonutChart } from '@/components';
 import { useMetrics, useSystemStatus, useTasks, useAgents } from '@/hooks/useApi';
-import { useTaskUpdates, useAgentUpdates, useSystemMetricsUpdates } from '@/hooks/useSocket';
-import { useEffect, useState } from 'react';
+import { useSystemMetricsUpdates } from '@/hooks/useSocket';
+import { useMemo } from 'react';
 
 interface RecentTask {
   id: string;
@@ -22,12 +22,6 @@ interface RecentTask {
   timestamp: string;
 }
 
-interface ChartDataPoint {
-  name: string;
-  value: number;
-  [key: string]: string | number;
-}
-
 export default function OverviewTab() {
   // API data fetching
   const { data: metrics, error: metricsError, isLoading: metricsLoading } = useMetrics();
@@ -36,53 +30,38 @@ export default function OverviewTab() {
   const { data: agents, error: agentsError } = useAgents();
 
   // Real-time updates
-  const { taskUpdates } = useTaskUpdates();
-  const { agentUpdates } = useAgentUpdates();
   const { metrics: liveMetrics } = useSystemMetricsUpdates();
 
-  // Local state for processed data
-  const [taskPerformanceData, setTaskPerformanceData] = useState<ChartDataPoint[]>([]);
-  const [agentActivityData, setAgentActivityData] = useState<ChartDataPoint[]>([]);
-  const [systemMetricsData, setSystemMetricsData] = useState<ChartDataPoint[]>([]);
-  const [recentTasks, setRecentTasks] = useState<RecentTask[]>([]);
+  const taskPerformanceData = useMemo(() => {
+    if (!tasks) return [];
+    
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    });
 
-  // Process task performance data for the last 7 days
-  useEffect(() => {
-    if (tasks) {
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (6 - i));
-        return date.toLocaleDateString('en-US', { weekday: 'short' });
-      });
-
-      const taskCounts = last7Days.map(day => {
-        // In a real implementation, you'd filter tasks by date
-        // For now, we'll generate sample data based on total tasks
-        const count = Math.floor(Math.random() * 30) + 10;
-        return { name: day, value: count };
-      });
-
-      setTaskPerformanceData(taskCounts);
-    }
+    return last7Days.map(day => {
+      // In a real implementation, you'd filter tasks by date
+      // For now, we'll generate sample data based on total tasks
+      const count = Math.floor(Math.random() * 30) + 10;
+      return { name: day, value: count };
+    });
   }, [tasks]);
 
-  // Process agent activity data
-  useEffect(() => {
-    if (agents) {
-      const activityData = agents
-        .filter(agent => agent.status !== 'offline')
-        .map(agent => ({
-          name: agent.name,
-          value: Math.floor(Math.random() * 40) + 10 // Sample task count per agent
-        }))
-        .slice(0, 5); // Top 5 agents
+  const agentActivityData = useMemo(() => {
+    if (!agents) return [];
 
-      setAgentActivityData(activityData);
-    }
-  }, [agents, agentUpdates]);
+    return agents
+      .filter(agent => agent.status !== 'offline')
+      .map(agent => ({
+        name: agent.name,
+        value: Math.floor(Math.random() * 40) + 10 // Sample task count per agent
+      }))
+      .slice(0, 5); // Top 5 agents
+  }, [agents]);
 
-  // Process system metrics data for the last 24 hours
-  useEffect(() => {
+  const systemMetricsData = useMemo(() => {
     const hours = Array.from({ length: 7 }, (_, i) => {
       const hour = (new Date().getHours() - (6 - i) * 4) % 24;
       return `${hour.toString().padStart(2, '0')}:00`;
@@ -98,32 +77,27 @@ export default function OverviewTab() {
       timestamp: new Date().toISOString()
     };
 
-    const metricsData = hours.map(hour => ({
+    return hours.map(hour => ({
       name: hour,
       value: Math.floor(baseMetrics.cpu_usage + (Math.random() - 0.5) * 20)
     }));
-
-    setSystemMetricsData(metricsData);
   }, [liveMetrics]);
 
-  // Process recent tasks
-  useEffect(() => {
-    if (tasks) {
-      const recent = tasks
-        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-        .slice(0, 5)
-        .map(task => ({
-          id: task.id,
-          title: task.title || task.description,
-          status: task.status as RecentTask['status'],
-          agent: agents?.find(agent => agent.id === task.agent_id)?.name || 'Unknown Agent',
-          duration: calculateDuration(task.created_at, task.updated_at),
-          timestamp: getRelativeTime(task.updated_at)
-        }));
+  const recentTasks = useMemo(() => {
+    if (!tasks) return [];
 
-      setRecentTasks(recent);
-    }
-  }, [tasks, agents, taskUpdates]);
+    return tasks
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 5)
+      .map(task => ({
+        id: task.id,
+        title: task.title || task.description,
+        status: task.status as RecentTask['status'],
+        agent: agents?.find(agent => agent.id === task.agent_id)?.name || 'Unknown Agent',
+        duration: calculateDuration(task.created_at, task.updated_at),
+        timestamp: getRelativeTime(task.updated_at)
+      }));
+  }, [tasks, agents]);
 
   // Helper functions
   const calculateDuration = (start: string, end: string) => {
@@ -269,6 +243,7 @@ export default function OverviewTab() {
             height={250}
             color="#8b5cf6"
             showGrid={true}
+            showBrush={true}
           />
         </div>
 
@@ -295,6 +270,7 @@ export default function OverviewTab() {
             height={200}
             color="#6366f1"
             showGrid={true}
+            showBrush={true}
           />
         </div>
 
