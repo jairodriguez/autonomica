@@ -1,0 +1,289 @@
+services:
+  # Redis for task queue and caching
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_CONTAINER_NAME}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - autonomica-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Autonomica Worker Pod (Main Application)
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ${WORKER_CONTAINER_NAME}
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      # Redis Configuration
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      
+      # Worker Configuration
+      - WORKER_NAME=${WORKER_NAME:-autonomica-worker}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - HEALTH_CHECK_PORT=${HEALTH_CHECK_PORT:-8080}
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-4}
+      - TASK_TIME_LIMIT=${TASK_TIME_LIMIT:-300}
+      
+      # Environment Detection
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-false}
+      
+      # API Keys (from .env)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-}
+      
+      # Clerk Authentication
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY:-}
+      
+      # Celery Configuration
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CELERY_TASK_SERIALIZER=json
+      - CELERY_RESULT_SERIALIZER=json
+      - CELERY_ACCEPT_CONTENT=["json"]
+      - CELERY_TIMEZONE=UTC
+      
+      # Web Scraping Configuration
+      - USER_AGENT=${USER_AGENT:-Autonomica/1.0 (+https://autonomica.ai)}
+      - PLAYWRIGHT_TIMEOUT=${PLAYWRIGHT_TIMEOUT:-30000}
+      - BROWSER_HEADLESS=${BROWSER_HEADLESS:-true}
+      
+      # Rate Limiting
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-30}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-10}
+      
+    ports:
+      - "${HEALTH_CHECK_PORT:-8080}:${HEALTH_CHECK_PORT:-8080}"
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+      - worker_tmp:/app/tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${HEALTH_CHECK_PORT:-8080}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - autonomica-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Celery Worker (Background Task Processing)
+  celery-worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ${CELERY_CONTAINER_NAME}
+    command: celery -A worker.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${WORKER_CONCURRENCY:-4} --max-tasks-per-child=1000
+    depends_on:
+      redis:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+    environment:
+      # Redis Configuration
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      
+      # Celery Configuration
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CELERY_TASK_SERIALIZER=json
+      - CELERY_RESULT_SERIALIZER=json
+      - CELERY_ACCEPT_CONTENT=["json"]
+      - CELERY_TIMEZONE=UTC
+      - CELERY_WORKER_PREFETCH_MULTIPLIER=1
+      - CELERY_TASK_ACKS_LATE=true
+      - CELERY_WORKER_MAX_TASKS_PER_CHILD=1000
+      
+      # Worker Configuration
+      - WORKER_NAME=${WORKER_NAME:-autonomica-worker}-celery
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      
+      # API Keys (inherit from main worker)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-}
+      
+      # Task Configuration
+      - TASK_TIME_LIMIT=${TASK_TIME_LIMIT:-300}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-10}
+      
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+      - worker_tmp:/app/tmp
+    healthcheck:
+      test: ["CMD", "celery", "-A", "worker.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - autonomica-network
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Flower (Celery Monitoring Dashboard)
+  flower:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ${FLOWER_CONTAINER_NAME}
+    command: celery -A worker.celery_app flower --port=5555 --broker=redis://redis:6379/1 --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-autonomica123}
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_healthy
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-autonomica123}
+      - FLOWER_URL_PREFIX=${FLOWER_URL_PREFIX:-}
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - autonomica-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # Redis Commander (Redis GUI - Development Only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ${REDIS_COMMANDER_CONTAINER_NAME}
+    profiles:
+      - development
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-autonomica123}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - autonomica-network
+
+  # Nginx (Load Balancer & Proxy - Production)
+  nginx:
+    image: nginx:alpine
+    container_name: ${NGINX_CONTAINER_NAME}
+    profiles:
+      - production
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - worker
+      - flower
+    restart: unless-stopped
+    networks:
+      - autonomica-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+volumes:
+  redis_data:
+    driver: local
+  worker_tmp:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  autonomica-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

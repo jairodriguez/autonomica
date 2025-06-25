@@ -1,0 +1,60 @@
+# Docker Compose Override for Development Environment
+# This file provides development-specific configurations
+# Use: docker-compose up (automatically includes this file)
+
+services:
+  # Development overrides for Redis
+  redis:
+    environment:
+      - REDIS_CONTAINER_NAME=autonomica-redis
+      - REDIS_PASSWORD=  # No password in development
+    ports:
+      - "6379:6379"  # Expose Redis port for local development tools
+    command: redis-server --appendonly yes --loglevel verbose
+
+  # Development overrides for Worker
+  worker:
+    build:
+      target: development  # Use development Docker target
+    environment:
+      - WORKER_CONTAINER_NAME=autonomica-worker
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      - REDIS_PASSWORD=  # No password in development
+    volumes:
+      - .:/app  # Mount source code for hot reload
+      - /app/venv  # Preserve virtual environment
+    command: python worker.py  # Direct Python execution for debugging
+
+  # Development overrides for Celery Worker  
+  celery-worker:
+    build:
+      target: development
+    environment:
+      - CELERY_CONTAINER_NAME=autonomica-celery-worker
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      - REDIS_PASSWORD=  # No password in development
+    volumes:
+      - .:/app
+      - /app/venv
+    command: celery -A worker.celery_app worker --loglevel=debug --concurrency=2 --pool=solo
+
+  # Development overrides for Flower
+  flower:
+    build:
+      target: development
+    environment:
+      - FLOWER_CONTAINER_NAME=autonomica-flower
+      - FLOWER_BASIC_AUTH=admin:dev123  # Simple auth for development
+    volumes:
+      - .:/app
+      - /app/venv
+
+  # Enable Redis Commander for development
+  redis-commander:
+    profiles: []  # Remove development profile to enable by default
+    environment:
+      - REDIS_COMMANDER_CONTAINER_NAME=autonomica-redis-commander 

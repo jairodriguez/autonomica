@@ -1,0 +1,38 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "autonomica-worker"
+
+[services.env]
+WORKER_NAME = "autonomica-worker"
+LOG_LEVEL = "INFO"
+HEALTH_CHECK_PORT = "8080"
+RAILWAY_ENVIRONMENT = "production"
+
+[services.variables]
+PORT = "8080"
+
+[services.healthcheck]
+path = "/health"
+interval = 30
+timeout = 10
+retries = 3
+startPeriod = 60
+
+[services.resources]
+memory = "1GB"
+cpu = "0.5"
+
+[services.scaling]
+minReplicas = 0
+maxReplicas = 3
+targetCPU = 70
+targetMemory = 80
