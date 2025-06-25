@@ -15,7 +15,7 @@ services:
   # Development overrides for Worker
   worker:
     build:
-        # Use development Docker target
+      target: development  # Use development Docker target
     environment:
       - WORKER_CONTAINER_NAME=autonomica-worker
       - DEBUG=true
@@ -30,7 +30,7 @@ services:
   # Development overrides for Celery Worker  
   celery-worker:
     build:
-      
+      target: development
     environment:
       - CELERY_CONTAINER_NAME=autonomica-celery-worker
       - DEBUG=true
@@ -45,7 +45,7 @@ services:
   # Development overrides for Flower
   flower:
     build:
-      
+      target: development
     environment:
       - FLOWER_CONTAINER_NAME=autonomica-flower
       - FLOWER_BASIC_AUTH=admin:dev123  # Simple auth for development

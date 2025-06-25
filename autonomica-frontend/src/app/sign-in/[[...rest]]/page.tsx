@@ -1,6 +1,7 @@
 'use client';
 
 import { SignIn } from '@clerk/nextjs';
+import Link from 'next/link';
 
 export default function SignInPage() {
   return (
@@ -54,9 +55,9 @@ export default function SignInPage() {
         <div className="mt-6 text-center">
           <p className="text-gray-500 text-sm">
             New to Autonomica?{' '}
-            <a href="/sign-up" className="text-purple-400 hover:text-purple-300">
+            <Link href="/sign-up" className="text-purple-400 hover:text-purple-300">
               Create an account
-            </a>
+            </Link>
           </p>
         </div>
       </div>

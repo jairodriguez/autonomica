@@ -76,14 +76,11 @@ logger.add(
 )
 
 # Initialize Celery for background tasks
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/1")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
-
 celery_app = Celery(
     config.WORKER_NAME,
-    broker=CELERY_BROKER_URL,
-    backend=CELERY_RESULT_BACKEND,
-    include=['worker']
+    broker=config.REDIS_URL,
+    backend=config.REDIS_URL,
+    include=['worker.tasks']
 )
 
 # Celery configuration

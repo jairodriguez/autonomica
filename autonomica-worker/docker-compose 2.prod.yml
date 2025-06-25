@@ -1,0 +1,83 @@
+# Docker Compose Production Configuration
+# Use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # Production Redis with security
+  redis:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_CONTAINER_NAME=  # Disable container name for scaling
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # Production Worker (remove container_name for scaling)
+  worker:
+    build:
+      target: production
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - WORKER_CONTAINER_NAME=  # Disable container name for scaling
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        order: start-first
+
+  # Production Celery Worker (remove container_name for scaling)
+  celery-worker:
+    build:
+      target: production
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - CELERY_CONTAINER_NAME=  # Disable container name for scaling
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+  # Production Flower (secured, remove container_name for scaling)
+  flower:
+    build:
+      target: production
+    environment:
+      - FLOWER_BASIC_AUTH=${FLOWER_USER}:${FLOWER_PASSWORD}
+      - FLOWER_CONTAINER_NAME=  # Disable container name for scaling
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # Enable Nginx for production (remove container_name for scaling)
+  nginx:
+    profiles: []  # Remove production profile to enable
+    environment:
+      - NGINX_CONTAINER_NAME=  # Disable container name for scaling
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3 
