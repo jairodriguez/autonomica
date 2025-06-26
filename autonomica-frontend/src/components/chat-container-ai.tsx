@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ChatMessages from './chat-messages';
 import ChatInput from './chat-input';
 import { useChat } from '@/lib/use-chat';
 import { Message } from '@/types/chat';
 import type { Agent } from './project-sidebar';
+import { API_URLS } from '@/lib/config';
 
 interface ChatContainerAIProps {
   initialMessages?: Message[];
@@ -21,10 +22,10 @@ export default function ChatContainerAI({
   onFinish,
   onError,
   className = "",
-  api = '/api/chat',
+  api = API_URLS.CHAT,
   agentContext
 }: ChatContainerAIProps) {
-  const { messages, isLoading, error } = useChat({
+  const { messages, isLoading, error, append } = useChat({
     api,
     initialMessages: initialMessages.length > 0 ? initialMessages : [
       {
@@ -39,9 +40,13 @@ export default function ChatContainerAI({
   });
 
   const handleSendMessage = async (content: string) => {
-    // TODO: Implement actual message sending
-    // For now, we'll use this as a placeholder
-    console.log('Message to send:', content);
+    if (!content.trim() || isLoading) return;
+    
+    // Send the message using the useChat hook
+    await append({
+      role: 'user',
+      content: content.trim()
+    });
   };
 
   // Determine display info based on agent context
