@@ -8,25 +8,17 @@ export function useSocket(url?: string) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDisabled, setIsDisabled] = useState(false);
 
   const socketUrl = url || process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    // Skip socket connection if explicitly disabled
-    if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DISABLE_WEBSOCKETS === 'true') {
-      console.log('[Socket] WebSockets disabled in development mode');
-      setIsDisabled(true);
-      return;
-    }
-
     try {
       socketRef.current = io(socketUrl, {
         transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: 3, // Reduced attempts
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        timeout: 5000, // Reduced timeout
+        timeout: 20000,
       });
 
       const socket = socketRef.current;
@@ -35,7 +27,6 @@ export function useSocket(url?: string) {
         console.log('[Socket] Connected to server');
         setIsConnected(true);
         setError(null);
-        setIsDisabled(false);
       });
 
       socket.on('disconnect', (reason) => {
@@ -44,23 +35,25 @@ export function useSocket(url?: string) {
       });
 
       socket.on('connect_error', (error) => {
-        console.warn('[Socket] Connection error (falling back to polling):', error.message);
-        // Don't set error for connection failures in development
-        if (process.env.NODE_ENV !== 'development') {
-          setError(error.message);
-        }
+        console.error('[Socket] Connection error:', error);
+        setError(error.message);
         setIsConnected(false);
       });
 
-      socket.on('reconnect_failed', () => {
-        console.warn('[Socket] Failed to reconnect - disabling websockets');
-        setIsDisabled(true);
-        setIsConnected(false);
+      socket.on('reconnect', (attemptNumber) => {
+        console.log('[Socket] Reconnected after', attemptNumber, 'attempts');
+        setIsConnected(true);
+        setError(null);
+      });
+
+      socket.on('reconnect_error', (error) => {
+        console.error('[Socket] Reconnection error:', error);
+        setError(error.message);
       });
 
     } catch (err) {
-      console.warn('[Socket] Failed to initialize:', err);
-      setIsDisabled(true);
+      console.error('[Socket] Failed to initialize:', err);
+      setError(err instanceof Error ? err.message : 'Failed to initialize socket');
     }
 
     return () => {
@@ -73,25 +66,22 @@ export function useSocket(url?: string) {
   }, [socketUrl]);
 
   const emit = useCallback((event: string, data?: unknown) => {
-    if (isDisabled) return;
     if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);
     } else {
       console.warn('[Socket] Cannot emit - not connected');
     }
-  }, [isDisabled]);
+  }, []);
 
   const on = useCallback((event: string, callback: (data: unknown) => void) => {
-    if (isDisabled) return () => {};
     if (socketRef.current) {
       socketRef.current.on(event, callback);
       return () => socketRef.current?.off(event, callback);
     }
     return () => {};
-  }, [isDisabled]);
+  }, []);
 
   const off = useCallback((event: string, callback?: (data: unknown) => void) => {
-    if (isDisabled) return;
     if (socketRef.current) {
       if (callback) {
         socketRef.current.off(event, callback);
@@ -99,12 +89,12 @@ export function useSocket(url?: string) {
         socketRef.current.off(event);
       }
     }
-  }, [isDisabled]);
+  }, []);
 
   return {
     socket: socketRef.current,
-    isConnected: isConnected && !isDisabled,
-    error: isDisabled ? null : error,
+    isConnected,
+    error,
     emit,
     on,
     off,

@@ -465,7 +465,7 @@ npm run dev
 # Start backend server
 cd autonomica-api
 source venv/bin/activate
-python main_api.py
+python simple_server.py
 
 # Test with authenticated requests using browser dev tools
 # Get JWT token from Application -> Cookies or using getToken()
@@ -553,15 +553,6 @@ CLERK_SECRET_KEY=sk_live_your_live_secret_key
 - **Clerk Next.js Guide**: [https://clerk.com/docs/quickstarts/nextjs](https://clerk.com/docs/quickstarts/nextjs)
 - **FastAPI Security**: [https://fastapi.tiangolo.com/tutorial/security/](https://fastapi.tiangolo.com/tutorial/security/)
 - **Autonomica Frontend Setup**: See `autonomica-frontend/CLERK_SETUP.md`
-
-## Quick Test
-
-1. Start the API server:
-```bash
-cd autonomica-api
-source venv/bin/activate
-python main_api.py
-```
 
 ---
 
