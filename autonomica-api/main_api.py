@@ -14,6 +14,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import httpx
 
+# Workforce orchestrator
+from app.owl.workforce import Workforce
+
 # Environment Configuration
 class Config:
     # API Configuration
@@ -80,37 +83,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Production OWL Workforce with Real AI
-class ProductionOWLWorkforce:
-    def __init__(self):
-        self.agents = {
-            "strategy": {
-                "id": "strategy-001", 
-                "name": "Strategy Specialist",
-                "type": "Marketing Strategy", 
-                "status": "active",
-                "model": config.AI_MODEL,
-                "system_prompt": "You are a senior marketing strategist with 10+ years of experience. Provide strategic marketing advice, campaign planning, and business growth insights."
-            },
-            "content": {
-                "id": "content-001", 
-                "name": "Content Creator",
-                "type": "Content Marketing", 
-                "status": "active",
-                "model": config.AI_MODEL,
-                "system_prompt": "You are an expert content marketer and copywriter. Create engaging content, blog posts, social media copy, and marketing materials."
-            },
-            "analytics": {
-                "id": "analytics-001", 
-                "name": "Analytics Expert",
-                "type": "Data Analytics", 
-                "status": "active",
-                "model": config.AI_MODEL,
-                "system_prompt": "You are a marketing analytics expert. Analyze data, provide insights on performance metrics, ROI, and optimization recommendations."
-            }
-        }
-
-workforce = ProductionOWLWorkforce()
+# Instantiate central Workforce orchestrator
+workforce = Workforce(config.AI_MODEL)
 
 # AI Integration
 async def call_openai_api(messages: List[Dict], system_prompt: str) -> str:
@@ -194,18 +168,8 @@ async def call_anthropic_api(messages: List[Dict], system_prompt: str) -> str:
 async def generate_ai_response(messages: List[ChatMessage], agent_context: Dict = None) -> str:
     """Generate real AI responses based on provider configuration"""
     
-    # Determine agent type for system prompt
-    last_message = messages[-1].content.lower()
-    
-    # Select appropriate agent and system prompt
-    if any(word in last_message for word in ['strategy', 'plan', 'goal', 'campaign']):
-        agent = workforce.agents["strategy"]
-    elif any(word in last_message for word in ['content', 'blog', 'social', 'copy']):
-        agent = workforce.agents["content"]  
-    elif any(word in last_message for word in ['analytics', 'data', 'metrics', 'performance']):
-        agent = workforce.agents["analytics"]
-    else:
-        agent = workforce.agents["strategy"]  # Default
+    # Use Workforce routing logic to choose the best agent
+    agent = workforce.select_agent(messages)
     
     # Convert to OpenAI format
     openai_messages = [
@@ -219,12 +183,12 @@ async def generate_ai_response(messages: List[ChatMessage], agent_context: Dict 
     
     # Call appropriate AI provider
     if config.AI_PROVIDER == "openai":
-        return await call_openai_api(openai_messages, agent["system_prompt"])
+        return await call_openai_api(openai_messages, agent.system_prompt)
     elif config.AI_PROVIDER == "anthropic":
-        return await call_anthropic_api(openai_messages, agent["system_prompt"])
+        return await call_anthropic_api(openai_messages, agent.system_prompt)
     else:
         # Mock responses for development/testing
-        return f"[MOCK RESPONSE] I'm a {agent['name']} agent. In production, this would be a real AI response using {config.AI_PROVIDER}."
+        return f"[MOCK RESPONSE] I'm a {agent.name} agent. In production, this would be a real AI response using {config.AI_PROVIDER}."
 
 # API Endpoints
 @app.get("/")
@@ -262,9 +226,9 @@ async def health():
 async def get_agents():
     """Get all available agents"""
     return {
-        "agents": list(workforce.agents.values()),
+        "agents": [a.__dict__ for a in workforce.agents.values()],
         "total": len(workforce.agents),
-        "active": len([a for a in workforce.agents.values() if a["status"] == "active"]),
+        "active": len([a for a in workforce.agents.values() if a.status == "active"]),
         "ai_provider": config.AI_PROVIDER
     }
 

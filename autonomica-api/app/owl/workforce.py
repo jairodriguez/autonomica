@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, field
 
-from .agent import Agent, TaskAllocationSystem
+from .agent import TaskAllocationSystem
 from .communication import (
     CamelMessage,
     MessageHeader,
@@ -23,6 +24,19 @@ from .tasks import Task, TaskStatus
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Agent:
+    """Simple data class representing an AI agent in the workforce."""
+
+    id: str
+    name: str
+    type: str
+    status: str = "active"
+    model: str | None = None
+    system_prompt: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
 class Workforce:
     """Central orchestration system for the multi-agent platform."""
 
@@ -31,18 +45,52 @@ class Workforce:
     # ---------------------------------------------------------------------
     # Construction helpers (singleton pattern)
     # ---------------------------------------------------------------------
-    def __new__(cls) -> "Workforce":
+    def __new__(cls, *args, **kwargs) -> "Workforce":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self) -> None:
+    def __init__(self, default_model: str) -> None:
         # Prevent re-initialisation in the singleton instance
         if getattr(self, "_initialised", False):
             return
 
         # Runtime state containers
-        self.agents: Dict[str, Agent] = {}
+        self.agents: Dict[str, Agent] = {
+            "strategy": Agent(
+                id="strategy-001",
+                name="Strategy Specialist",
+                type="Marketing Strategy",
+                model=default_model,
+                system_prompt=(
+                    "You are a senior marketing strategist with 10+ years of "
+                    "experience. Provide strategic marketing advice, campaign "
+                    "planning, and business growth insights."
+                ),
+            ),
+            "content": Agent(
+                id="content-001",
+                name="Content Creator",
+                type="Content Marketing",
+                model=default_model,
+                system_prompt=(
+                    "You are an expert content marketer and copywriter. Create "
+                    "engaging content, blog posts, social media copy, and "
+                    "marketing materials."
+                ),
+            ),
+            "analytics": Agent(
+                id="analytics-001",
+                name="Analytics Expert",
+                type="Data Analytics",
+                model=default_model,
+                system_prompt=(
+                    "You are a marketing analytics expert. Analyze data, "
+                    "provide insights on performance metrics, ROI, and "
+                    "optimization recommendations."
+                ),
+            ),
+        }
         self.task_queue: List[Task] = []
         self.task_allocator = TaskAllocationSystem()
         self.task_monitor = TaskMonitor()
@@ -134,6 +182,42 @@ class Workforce:
     def stop(self) -> None:
         """Signal the running loop to exit after the current iteration."""
         self._running = False
+
+    # ---------------------------------------------------------------------
+    # Agent selection logic (iteration 1)
+    # ---------------------------------------------------------------------
+    def select_agent(self, messages: List["ChatMessage" | Any]) -> Agent:
+        """Naively choose an agent based on keywords in the latest user message.
+
+        `messages` should be the list of incoming chat messages (Pydantic
+        ChatMessage objects or similar with `.content` attr).  This mirrors the
+        previous hard-coded logic but now resides centrally.
+        """
+        if not messages:
+            # Fallback to strategy agent if no content.
+            return self.agents["strategy"]
+
+        last_content = messages[-1].content.lower()
+        if any(k in last_content for k in ("strategy", "plan", "goal", "campaign")):
+            return self.agents["strategy"]
+        if any(k in last_content for k in ("content", "blog", "social", "copy")):
+            return self.agents["content"]
+        if any(k in last_content for k in ("analytics", "data", "metrics", "performance")):
+            return self.agents["analytics"]
+        # Default
+        return self.agents["strategy"]
+
+    # ------------------------------------------------------------------
+    # Placeholder orchestration (will expand in future iterations)
+    # ------------------------------------------------------------------
+    async def run_agents(self, messages: List["ChatMessage" | Any], user_id: str | None = None) -> Agent:
+        """For now simply returns the selected agent.
+
+        Future versions will coordinate multiple agents, persist conversation
+        context (possibly in Redis), and aggregate their outputs.
+        """
+        # TODO: incorporate user_id and conversation context.
+        return self.select_agent(messages)
 
 
 # -----------------------------------------------------------------
