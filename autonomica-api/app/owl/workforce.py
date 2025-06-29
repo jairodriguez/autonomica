@@ -210,14 +210,61 @@ class Workforce:
     # ------------------------------------------------------------------
     # Placeholder orchestration (will expand in future iterations)
     # ------------------------------------------------------------------
-    async def run_agents(self, messages: List["ChatMessage" | Any], user_id: str | None = None) -> Agent:
-        """For now simply returns the selected agent.
+    async def run_agents(self, messages: List["ChatMessage" | Any], user_id: str | None = None, session_id: str = "default") -> Dict[str, Any]:
+        """Route a chat request through the workforce.
 
-        Future versions will coordinate multiple agents, persist conversation
-        context (possibly in Redis), and aggregate their outputs.
+        Current minimal implementation performs three things:
+        1. Chooses the most suitable *single* agent via ``select_agent``.
+        2. Stores / retrieves conversation history in Redis (if configured).
+        3. Returns a payload containing the agent and the compiled message
+           history ready for an LLM call.
+
+        A future iteration will
+        • coordinate *multiple* agents asynchronously,
+        • track token/cost usage,
+        • and aggregate their responses.
         """
-        # TODO: incorporate user_id and conversation context.
-        return self.select_agent(messages)
+
+        import os, json  # local import to avoid unused warnings when redis not set
+
+        agent = self.select_agent(messages)
+
+        # ------------------------------------------------------------------
+        # Conversation memory (optional Redis persistence)
+        # ------------------------------------------------------------------
+        history: List[Dict[str, Any]]
+
+        redis_url = os.getenv("REDIS_URL") or os.getenv("KV_REST_API_URL")
+        if redis_url and user_id:
+            try:
+                import redis  # type: ignore
+
+                redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
+
+                key = f"chat:{user_id}:{session_id}"
+
+                # Append new messages to the conversation history (store as JSON)
+                for m in messages:
+                    redis_client.rpush(key, json.dumps(m if isinstance(m, dict) else m.dict()))
+
+                # Trim to last 100 messages to keep memory bounded
+                redis_client.ltrim(key, -100, -1)
+
+                # Retrieve complete (trimmed) history for context
+                history_json = redis_client.lrange(key, 0, -1)
+                history = [json.loads(item) for item in history_json]
+
+            except Exception:  # noqa: BLE001 – optional feature, fallback gracefully
+                logger.exception("Redis conversation store unavailable – falling back to local history only")
+                history = [m.dict() if hasattr(m, "dict") else m for m in messages]
+        else:
+            # No Redis configured – just use provided messages as context
+            history = [m.dict() if hasattr(m, "dict") else m for m in messages]
+
+        return {
+            "agent": agent,
+            "history": history,
+        }
 
 
 # -----------------------------------------------------------------

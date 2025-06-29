@@ -165,20 +165,24 @@ async def call_anthropic_api(messages: List[Dict], system_prompt: str) -> str:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
-async def generate_ai_response(messages: List[ChatMessage], agent_context: Dict = None) -> str:
+async def generate_ai_response(messages: List[ChatMessage], agent_context: Optional[Dict[str, Any]] = None) -> str:
     """Generate real AI responses based on provider configuration"""
     
-    # Use Workforce routing logic to choose the best agent
-    agent = workforce.select_agent(messages)
-    
-    # Convert to OpenAI format
+    # Delegate to Workforce to obtain agent + full conversation history
+    # (Redis-backed if configured).
+    # TODO: pass real user_id when auth middleware wired.
+    orchestration = await workforce.run_agents(messages)
+    agent = orchestration["agent"]
+    history = orchestration["history"]
+
+    # Convert history into OpenAI/Anthropic compatible message list
     openai_messages = [
         {
-            "role": msg.role if msg.role != "system" else "assistant",
-            "content": msg.content
+            "role": m.get("role", "user") if m.get("role") != "system" else "assistant",
+            "content": m.get("content", "")
         }
-        for msg in messages
-        if msg.role in ["user", "assistant"]
+        for m in history
+        if m.get("role") in ["user", "assistant"]
     ]
     
     # Call appropriate AI provider
