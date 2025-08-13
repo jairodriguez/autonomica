@@ -4,12 +4,17 @@ Configuration settings for Autonomica API
 
 import os
 from typing import List, Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",
+    )
     """Application settings"""
     
     # API Configuration
@@ -20,6 +25,7 @@ class Settings(BaseSettings):
     # Server Configuration
     HOST: str = Field(default="0.0.0.0", env="HOST")
     PORT: int = Field(default=8000, env="PORT")
+    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     
     # CORS Configuration
     ALLOWED_ORIGINS: List[str] = Field(
@@ -39,6 +45,7 @@ class Settings(BaseSettings):
     # AI/LLM Configuration
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
+    AI_MODEL: str = Field(default="gpt-4-turbo", env="AI_MODEL")
     
     # Agent Configuration
     MAX_AGENTS: int = Field(default=10, env="MAX_AGENTS")
@@ -60,6 +67,7 @@ class Settings(BaseSettings):
     # Security Configuration
     SECRET_KEY: str = Field(default="your-secret-key-change-in-production", env="SECRET_KEY")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    CLERK_SECRET_KEY: Optional[str] = Field(default=None, env="CLERK_SECRET_KEY")
     
     # Monitoring Configuration
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
@@ -72,9 +80,7 @@ class Settings(BaseSettings):
     RELOAD: bool = Field(default=True, env="RELOAD")
     LOG_LEVEL: str = Field(default="info", env="LOG_LEVEL")
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # Pydantic v2 style config is provided via model_config above
 
 
 @lru_cache()
@@ -95,8 +101,11 @@ def validate_settings():
     if not settings.OPENAI_API_KEY and not settings.ANTHROPIC_API_KEY:
         errors.append("At least one AI provider API key must be set (OPENAI_API_KEY or ANTHROPIC_API_KEY)")
     
-    if not settings.SECRET_KEY or settings.SECRET_KEY == "your-secret-key-change-in-production":
-        errors.append("SECRET_KEY must be set to a secure value in production")
+    if os.getenv("ENVIRONMENT") == "production":
+        if not settings.SECRET_KEY or settings.SECRET_KEY == "your-secret-key-change-in-production":
+            errors.append("SECRET_KEY must be set to a secure value in production")
+        if not settings.CLERK_SECRET_KEY:
+            errors.append("CLERK_SECRET_KEY must be set in production")
     
     if errors:
         raise ValueError(f"Configuration errors: {'; '.join(errors)}")

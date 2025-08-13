@@ -13,8 +13,8 @@ langchain-community==0.0.10
 # Agent Framework Dependencies
 # Note: OWL and CAMEL frameworks would be installed from source or custom repositories
 # For now, we'll use compatible agent libraries
-autogen-agentchat==0.2.40
-multi-agent-orchestrator==0.1.2
+# autogen-agentchat==0.2.40
+# multi-agent-orchestrator==0.1.2
 
 # Database and Storage
 redis==5.0.1

@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Performance Dashboard - Autonomica</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            text-align: center;
+            color: white;
+        }
+
+        .status-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .status-item .label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card h3 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric-item {
+            text-align: center;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .metric-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3748;
+            display: block;
+        }
+
+        .metric-item .label {
+            font-size: 0.8rem;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .alert-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+            background: #f7fafc;
+        }
+
+        .alert-item.critical {
+            border-left-color: #e53e3e;
+            background: #fed7d7;
+        }
+
+        .alert-item.high {
+            border-left-color: #dd6b20;
+            background: #feebc8;
+        }
+
+        .alert-item.medium {
+            border-left-color: #d69e2e;
+            background: #fef5e7;
+        }
+
+        .alert-item.low {
+            border-left-color: #38a169;
+            background: #c6f6d5;
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .alert-severity {
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .alert-timestamp {
+            font-size: 0.7rem;
+            color: #718096;
+        }
+
+        .alert-message {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .alert-recommendation {
+            font-size: 0.8rem;
+            color: #4a5568;
+            font-style: italic;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #4299e1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3182ce;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #dd6b20;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #2f855a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .controls {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>🚀 Ollama Performance Dashboard</h1>
+            <p>Advanced monitoring and analytics for local AI models</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="value" id="monitoring-status">Unknown</span>
+                <span class="label">Monitoring Status</span>
+            </div>
+            <div class="status-item">
+                <span class="value" id="gpu-status">Unknown</span>
+                <span class="label">GPU Available</span>
+            </div>
+            <div class="status-item">
+                <span class="value" id="total-metrics">0</span>
+                <span class="label">Total Metrics</span>
+            </div>
+            <div class="status-item">
+                <span class="value" id="active-alerts">0</span>
+                <span class="label">Active Alerts</span>
+            </div>
+            <div class="status-item">
+                <span class="value" id="models-count">0</span>
+                <span class="label">Models Available</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startMonitoring()">Start Monitoring</button>
+            <button class="btn btn-warning" onclick="stopMonitoring()">Stop Monitoring</button>
+            <button class="btn btn-success" onclick="refreshData()">Refresh Data</button>
+            <button class="btn btn-primary" onclick="exportMetrics()">Export Metrics</button>
+            <button class="btn btn-danger" onclick="cleanupMetrics()">Cleanup Old Data</button>
+        </div>
+
+        <div class="grid-container">
+            <!-- System Performance Chart -->
+            <div class="card">
+                <h3>📊 System Performance</h3>
+                <div class="chart-container">
+                    <canvas id="systemChart"></canvas>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <span class="value" id="cpu-usage">0%</span>
+                        <span class="label">CPU Usage</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="value" id="memory-usage">0%</span>
+                        <span class="label">Memory Usage</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="value" id="gpu-usage">0%</span>
+                        <span class="label">GPU Usage</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="value" id="disk-usage">0%</span>
+                        <span class="label">Disk Usage</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Performance Chart -->
+            <div class="card">
+                <h3>🤖 Model Performance</h3>
+                <div class="chart-container">
+                    <canvas id="modelChart"></canvas>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <span class="value" id="avg-response-time">0ms</span>
+                        <span class="label">Avg Response Time</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="value" id="success-rate">0%</span>
+                        <span class="label">Success Rate</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="value" id="tokens-per-second">0</span>
+                        <span class="label">Tokens/Second</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="value" id="total-requests">0</span>
+                        <span class="label">Total Requests</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Alerts -->
+            <div class="card">
+                <h3>🚨 Performance Alerts</h3>
+                <div class="alert-list" id="alerts-container">
+                    <div class="loading">Loading alerts...</div>
+                </div>
+            </div>
+
+            <!-- Optimization Recommendations -->
+            <div class="card">
+                <h3>💡 Optimization Recommendations</h3>
+                <div id="recommendations-container">
+                    <div class="loading">Loading recommendations...</div>
+                </div>
+            </div>
+
+            <!-- Model Details -->
+            <div class="card">
+                <h3>🔍 Model Details</h3>
+                <div id="model-details-container">
+                    <div class="loading">Loading model details...</div>
+                </div>
+            </div>
+
+            <!-- Historical Data -->
+            <div class="card">
+                <h3>📈 Historical Trends</h3>
+                <div class="chart-container">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let systemChart, modelChart, trendsChart;
+        let monitoringInterval;
+        let isMonitoring = false;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            loadInitialData();
+            startAutoRefresh();
+        });
+
+        function initializeCharts() {
+            // System Performance Chart
+            const systemCtx = document.getElementById('systemChart').getContext('2d');
+            systemChart = new Chart(systemCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU Usage (%)',
+                        data: [],
+                        borderColor: '#4299e1',
+                        backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Memory Usage (%)',
+                        data: [],
+                        borderColor: '#48bb78',
+                        backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'GPU Usage (%)',
+                        data: [],
+                        borderColor: '#ed8936',
+                        backgroundColor: 'rgba(237, 137, 54, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            // Model Performance Chart
+            const modelCtx = document.getElementById('modelChart').getContext('2d');
+            modelChart = new Chart(modelCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Response Time (ms)',
+                        data: [],
+                        backgroundColor: 'rgba(66, 153, 225, 0.8)'
+                    }, {
+                        label: 'Success Rate (%)',
+                        data: [],
+                        backgroundColor: 'rgba(72, 187, 120, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            // Historical Trends Chart
+            const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+            trendsChart = new Chart(trendsCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Requests per Hour',
+                        data: [],
+                        borderColor: '#9f7aea',
+                        backgroundColor: 'rgba(159, 122, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'hour'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadInitialData() {
+            try {
+                await Promise.all([
+                    loadMonitoringStatus(),
+                    loadPerformanceSummary(),
+                    loadAlerts(),
+                    loadRecommendations()
+                ]);
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                showError('Failed to load initial data');
+            }
+        }
+
+        async function loadMonitoringStatus() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const status = data.status;
+                    document.getElementById('monitoring-status').textContent = status.monitoring_active ? 'Active' : 'Inactive';
+                    document.getElementById('gpu-status').textContent = status.gpu_available ? 'Yes' : 'No';
+                    document.getElementById('total-metrics').textContent = status.total_ollama_metrics + status.total_system_metrics;
+                    document.getElementById('active-alerts').textContent = status.total_alerts;
+                    
+                    isMonitoring = status.monitoring_active;
+                }
+            } catch (error) {
+                console.error('Error loading monitoring status:', error);
+            }
+        }
+
+        async function loadPerformanceSummary() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/summary');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const summary = data.summary;
+                    
+                    // Update status bar
+                    document.getElementById('models-count').textContent = Object.keys(summary.models_performance).length;
+                    
+                    // Update system metrics
+                    if (summary.system_health) {
+                        document.getElementById('cpu-usage').textContent = summary.system_health.cpu_usage_percent.toFixed(1) + '%';
+                        document.getElementById('memory-usage').textContent = summary.system_health.memory_usage_percent.toFixed(1) + '%';
+                        document.getElementById('gpu-usage').textContent = summary.system_health.gpu_usage_percent ? summary.system_health.gpu_usage_percent.toFixed(1) + '%' : 'N/A';
+                        document.getElementById('disk-usage').textContent = summary.system_health.disk_usage_percent.toFixed(1) + '%';
+                    }
+                    
+                    // Update model metrics
+                    if (summary.models_performance && Object.keys(summary.models_performance).length > 0) {
+                        const models = Object.values(summary.models_performance);
+                        const avgResponseTime = models.reduce((sum, m) => sum + m.avg_response_time_ms, 0) / models.length;
+                        const avgSuccessRate = models.reduce((sum, m) => sum + m.success_rate, 0) / models.length;
+                        const avgTokensPerSecond = models.reduce((sum, m) => sum + m.avg_tokens_per_second, 0) / models.length;
+                        const totalRequests = models.reduce((sum, m) => sum + m.total_requests, 0);
+                        
+                        document.getElementById('avg-response-time').textContent = Math.round(avgResponseTime) + 'ms';
+                        document.getElementById('success-rate').textContent = (avgSuccessRate * 100).toFixed(1) + '%';
+                        document.getElementById('tokens-per-second').textContent = avgTokensPerSecond.toFixed(1);
+                        document.getElementById('total-requests').textContent = totalRequests;
+                    }
+                    
+                    // Update charts
+                    updateCharts(summary);
+                }
+            } catch (error) {
+                console.error('Error loading performance summary:', error);
+            }
+        }
+
+        async function loadAlerts() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/alerts?limit=10');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayAlerts(data.alerts);
+                }
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+            }
+        }
+
+        async function loadRecommendations() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/summary');
+                const data = await response.json();
+                
+                if (data.success && data.summary.optimization_recommendations) {
+                    displayRecommendations(data.summary.optimization_recommendations);
+                }
+            } catch (error) {
+                console.error('Error loading recommendations:', error);
+            }
+        }
+
+        function displayAlerts(alerts) {
+            const container = document.getElementById('alerts-container');
+            
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="success">No active alerts</div>';
+                return;
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item ${alert.severity}">
+                    <div class="alert-header">
+                        <span class="alert-severity">${alert.severity}</span>
+                        <span class="alert-timestamp">${new Date(alert.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div class="alert-message">${alert.message}</div>
+                    ${alert.recommendation ? `<div class="alert-recommendation">💡 ${alert.recommendation}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function displayRecommendations(recommendations) {
+            const container = document.getElementById('recommendations-container');
+            
+            if (recommendations.length === 0) {
+                container.innerHTML = '<div class="success">No optimization recommendations at this time</div>';
+                return;
+            }
+            
+            container.innerHTML = recommendations.map(rec => `
+                <div class="metric-item">
+                    <span class="label">💡 Recommendation</span>
+                    <span class="value" style="font-size: 0.9rem; line-height: 1.4;">${rec}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateCharts(summary) {
+            // Update system chart with latest data
+            if (summary.system_health) {
+                const timestamp = new Date().toLocaleTimeString();
+                
+                systemChart.data.labels.push(timestamp);
+                systemChart.data.datasets[0].data.push(summary.system_health.cpu_usage_percent);
+                systemChart.data.datasets[1].data.push(summary.system_health.memory_usage_percent);
+                systemChart.data.datasets[2].data.push(summary.system_health.gpu_usage_percent || 0);
+                
+                // Keep only last 20 data points
+                if (systemChart.data.labels.length > 20) {
+                    systemChart.data.labels.shift();
+                    systemChart.data.datasets.forEach(dataset => dataset.data.shift());
+                }
+                
+                systemChart.update();
+            }
+            
+            // Update model chart
+            if (summary.models_performance) {
+                const modelNames = Object.keys(summary.models_performance);
+                const responseTimes = modelNames.map(name => summary.models_performance[name].avg_response_time_ms);
+                const successRates = modelNames.map(name => summary.models_performance[name].success_rate * 100);
+                
+                modelChart.data.labels = modelNames;
+                modelChart.data.datasets[0].data = responseTimes;
+                modelChart.data.datasets[1].data = successRates;
+                modelChart.update();
+            }
+        }
+
+        async function startMonitoring() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/monitoring/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ interval: 5.0 })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Performance monitoring started successfully');
+                    isMonitoring = true;
+                    document.getElementById('monitoring-status').textContent = 'Active';
+                    startAutoRefresh();
+                } else {
+                    showError('Failed to start monitoring: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error starting monitoring:', error);
+                showError('Failed to start monitoring');
+            }
+        }
+
+        async function stopMonitoring() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/monitoring/stop', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Performance monitoring stopped successfully');
+                    isMonitoring = false;
+                    document.getElementById('monitoring-status').textContent = 'Inactive';
+                    stopAutoRefresh();
+                } else {
+                    showError('Failed to stop monitoring: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error stopping monitoring:', error);
+                showError('Failed to stop monitoring');
+            }
+        }
+
+        async function refreshData() {
+            await loadInitialData();
+            showSuccess('Data refreshed successfully');
+        }
+
+        async function exportMetrics() {
+            try {
+                const response = await fetch('/api/ai/ollama/performance/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ format: 'json' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Metrics exported successfully');
+                } else {
+                    showError('Failed to export metrics: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error exporting metrics:', error);
+                showError('Failed to export metrics');
+            }
+        }
+
+        async function cleanupMetrics() {
+            if (!confirm('Are you sure you want to cleanup old metrics? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ai/ollama/performance/cleanup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ days_to_keep: 30 })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Old metrics cleaned up successfully');
+                    await refreshData();
+                } else {
+                    showError('Failed to cleanup metrics: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error cleaning up metrics:', error);
+                showError('Failed to cleanup metrics');
+            }
+        }
+
+        function startAutoRefresh() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+            }
+            
+            monitoringInterval = setInterval(async () => {
+                if (isMonitoring) {
+                    await loadPerformanceSummary();
+                    await loadAlerts();
+                }
+            }, 10000); // Refresh every 10 seconds
+        }
+
+        function stopAutoRefresh() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+            }
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.dashboard-container').insertBefore(successDiv, document.querySelector('.controls'));
+            
+            setTimeout(() => successDiv.remove(), 5000);
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.querySelector('.dashboard-container').insertBefore(errorDiv, document.querySelector('.controls'));
+            
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopAutoRefresh();
+        });
+    </script>
+</body>
+</html>

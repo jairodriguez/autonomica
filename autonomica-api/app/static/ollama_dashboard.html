@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomica - Ollama Model Management Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online { background-color: #48bb78; }
+        .status-offline { background-color: #f56565; }
+        .status-loading { background-color: #ed8936; }
+
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .model-item {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .model-item:hover {
+            border-color: #667eea;
+            background: #edf2f7;
+            transform: translateY(-2px);
+        }
+
+        .model-item.selected {
+            border-color: #667eea;
+            background: #ebf8ff;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .model-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+
+        .model-size {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+
+        .model-status {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .status-ready { background: #c6f6d5; color: #22543d; }
+        .status-loading { background: #fed7d7; color: #742a2a; }
+        .status-error { background: #fed7d7; color: #742a2a; }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+            box-shadow: 0 8px 25px rgba(203, 213, 224, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 8px 25px rgba(245, 101, 101, 0.3);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric-item {
+            text-align: center;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #718096;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 2px solid #9ae6b4;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 2px solid #feb2b2;
+        }
+
+        .alert-info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 2px solid #90cdf4;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .model-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Ollama Model Management Dashboard</h1>
+            <p>Manage your local AI models with advanced controls and monitoring</p>
+        </div>
+
+        <!-- Status Overview Card -->
+        <div class="card">
+            <h2>📊 System Status</h2>
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-value" id="ollama-status">--</div>
+                    <div class="metric-label">Ollama Status</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="total-models">--</div>
+                    <div class="metric-label">Total Models</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="active-models">--</div>
+                    <div class="metric-label">Active Models</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="total-size">--</div>
+                    <div class="metric-label">Total Size</div>
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn" onclick="refreshStatus()">🔄 Refresh Status</button>
+                <button class="btn btn-secondary" onclick="checkHealth()">🏥 Health Check</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Model Management Card -->
+            <div class="card">
+                <h2>📦 Model Management</h2>
+                <div class="input-group">
+                    <label for="model-name">Model Name:</label>
+                    <input type="text" id="model-name" placeholder="e.g., llama3.1:8b, mixtral:8x7b">
+                </div>
+                <div class="input-group">
+                    <label for="model-provider">Provider:</label>
+                    <select id="model-provider">
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openrouter">OpenRouter (Cloud)</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="installModel()">📥 Install Model</button>
+                <button class="btn btn-secondary" onclick="listModels()">📋 List Models</button>
+                <button class="btn btn-danger" onclick="removeModel()">🗑️ Remove Model</button>
+                
+                <div class="loading" id="model-loading">
+                    <div class="spinner"></div>
+                    <p>Processing...</p>
+                </div>
+            </div>
+
+            <!-- Model Selection Card -->
+            <div class="card">
+                <h2>🎯 Model Selection</h2>
+                <p>Select models for different task types:</p>
+                
+                <div class="input-group">
+                    <label for="default-model">Default Model:</label>
+                    <select id="default-model">
+                        <option value="">Select default model...</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="coding-model">Coding Tasks:</label>
+                    <select id="coding-model">
+                        <option value="">Select coding model...</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="content-model">Content Generation:</label>
+                    <select id="content-model">
+                        <option value="">Select content model...</option>
+                    </select>
+                </div>
+                
+                <button class="btn" onclick="savePreferences()">💾 Save Preferences</button>
+                <button class="btn btn-secondary" onclick="loadPreferences()">📂 Load Preferences</button>
+            </div>
+
+            <!-- Performance Monitoring Card -->
+            <div class="card">
+                <h2>⚡ Performance Monitoring</h2>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <div class="metric-value" id="avg-response-time">--</div>
+                        <div class="metric-label">Avg Response (ms)</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value" id="requests-per-minute">--</div>
+                        <div class="metric-label">Requests/min</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value" id="error-rate">--</div>
+                        <div class="metric-label">Error Rate %</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value" id="memory-usage">--</div>
+                        <div class="metric-label">Memory Usage</div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button class="btn" onclick="startMonitoring()">▶️ Start Monitoring</button>
+                    <button class="btn btn-secondary" onclick="stopMonitoring()">⏹️ Stop Monitoring</button>
+                    <button class="btn btn-secondary" onclick="exportMetrics()">📊 Export Metrics</button>
+                </div>
+            </div>
+
+            <!-- Model Library Card -->
+            <div class="card">
+                <h2>📚 Model Library</h2>
+                <p>Available models and recommendations:</p>
+                
+                <div class="input-group">
+                    <label for="task-type">Task Type:</label>
+                    <select id="task-type">
+                        <option value="general">General Purpose</option>
+                        <option value="coding">Coding & Development</option>
+                        <option value="content">Content Generation</option>
+                        <option value="analysis">Data Analysis</option>
+                        <option value="vision">Vision & Images</option>
+                    </select>
+                </div>
+                
+                <button class="btn" onclick="getRecommendations()">💡 Get Recommendations</button>
+                <button class="btn btn-secondary" onclick="compareModels()">⚖️ Compare Models</button>
+                
+                <div id="recommendations" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- Installed Models Display -->
+        <div class="card">
+            <h2>💾 Installed Models</h2>
+            <div id="models-container">
+                <p>Loading models...</p>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alert-container"></div>
+    </div>
+
+    <script>
+        // Global variables
+        let monitoringInterval = null;
+        let currentModels = [];
+        let userPreferences = {};
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStatus();
+            listModels();
+            loadPreferences();
+            startMonitoring();
+        });
+
+        // API endpoints
+        const API_BASE = '/api/ai/ollama';
+        
+        // Utility functions
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} show`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function showLoading(show = true) {
+            const loading = document.getElementById('model-loading');
+            if (show) {
+                loading.classList.add('show');
+            } else {
+                loading.classList.remove('show');
+            }
+        }
+
+        // Status and health functions
+        async function refreshStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('ollama-status').textContent = 'Online';
+                    document.getElementById('ollama-status').parentElement.style.color = '#48bb78';
+                    document.getElementById('total-models').textContent = data.total_models || 0;
+                    document.getElementById('active-models').textContent = data.active_models || 0;
+                    document.getElementById('total-size').textContent = data.total_size || '0 GB';
+                } else {
+                    document.getElementById('ollama-status').textContent = 'Offline';
+                    document.getElementById('ollama-status').parentElement.style.color = '#f56565';
+                }
+            } catch (error) {
+                console.error('Error refreshing status:', error);
+                showAlert('Failed to refresh status', 'error');
+            }
+        }
+
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                if (data.healthy) {
+                    showAlert('Ollama service is healthy!', 'success');
+                } else {
+                    showAlert('Ollama service has issues', 'error');
+                }
+            } catch (error) {
+                console.error('Error checking health:', error);
+                showAlert('Failed to check health', 'error');
+            }
+        }
+
+        // Model management functions
+        async function installModel() {
+            const modelName = document.getElementById('model-name').value;
+            const provider = document.getElementById('model-provider').value;
+            
+            if (!modelName) {
+                showAlert('Please enter a model name', 'error');
+                return;
+            }
+            
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/install`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model_name: modelName,
+                        provider: provider
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(`Model ${modelName} installation started successfully!`, 'success');
+                    listModels(); // Refresh the model list
+                } else {
+                    showAlert(`Failed to install model: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error installing model:', error);
+                showAlert('Failed to install model', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function listModels() {
+            try {
+                const response = await fetch(`${API_BASE}/models`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentModels = data.models || [];
+                    displayModels(currentModels);
+                    updateModelSelects(currentModels);
+                } else {
+                    showAlert('Failed to list models', 'error');
+                }
+            } catch (error) {
+                console.error('Error listing models:', error);
+                showAlert('Failed to list models', 'error');
+            }
+        }
+
+        function displayModels(models) {
+            const container = document.getElementById('models-container');
+            
+            if (models.length === 0) {
+                container.innerHTML = '<p>No models installed. Install a model to get started!</p>';
+                return;
+            }
+            
+            const modelsHtml = models.map(model => `
+                <div class="model-item ${model.status === 'ready' ? 'selected' : ''}" 
+                     onclick="selectModel('${model.name}')">
+                    <div class="model-name">${model.name}</div>
+                    <div class="model-size">${formatBytes(model.size)}</div>
+                    <div class="model-status status-${model.status}">${model.status}</div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = `
+                <div class="model-grid">
+                    ${modelsHtml}
+                </div>
+            `;
+        }
+
+        function updateModelSelects(models) {
+            const selects = ['default-model', 'coding-model', 'content-model'];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                const currentValue = select.value;
+                
+                select.innerHTML = '<option value="">Select model...</option>';
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = `${model.name} (${formatBytes(model.size)})`;
+                    select.appendChild(option);
+                });
+                
+                select.value = currentValue;
+            });
+        }
+
+        async function removeModel() {
+            const modelName = prompt('Enter the name of the model to remove:');
+            if (!modelName) return;
+            
+            if (!confirm(`Are you sure you want to remove ${modelName}? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/remove`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(`Model ${modelName} removed successfully!`, 'success');
+                    listModels(); // Refresh the model list
+                } else {
+                    showAlert(`Failed to remove model: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error removing model:', error);
+                showAlert('Failed to remove model', 'error');
+            }
+        }
+
+        // Preferences functions
+        function savePreferences() {
+            userPreferences = {
+                default_model: document.getElementById('default-model').value,
+                coding_model: document.getElementById('coding-model').value,
+                content_model: document.getElementById('content-model').value
+            };
+            
+            localStorage.setItem('ollama-preferences', JSON.stringify(userPreferences));
+            showAlert('Preferences saved successfully!', 'success');
+        }
+
+        function loadPreferences() {
+            const saved = localStorage.getItem('ollama-preferences');
+            if (saved) {
+                userPreferences = JSON.parse(saved);
+                
+                document.getElementById('default-model').value = userPreferences.default_model || '';
+                document.getElementById('coding-model').value = userPreferences.coding_model || '';
+                document.getElementById('content-model').value = userPreferences.content_model || '';
+                
+                showAlert('Preferences loaded successfully!', 'success');
+            }
+        }
+
+        // Performance monitoring functions
+        function startMonitoring() {
+            if (monitoringInterval) return;
+            
+            monitoringInterval = setInterval(async () => {
+                await updateMetrics();
+            }, 5000); // Update every 5 seconds
+            
+            showAlert('Performance monitoring started', 'info');
+        }
+
+        function stopMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+                showAlert('Performance monitoring stopped', 'info');
+            }
+        }
+
+        async function updateMetrics() {
+            try {
+                const response = await fetch(`${API_BASE}/metrics`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const metrics = data.metrics;
+                    document.getElementById('avg-response-time').textContent = metrics.avg_response_time || '--';
+                    document.getElementById('requests-per-minute').textContent = metrics.requests_per_minute || '--';
+                    document.getElementById('error-rate').textContent = (metrics.error_rate || 0).toFixed(1) + '%';
+                    document.getElementById('memory-usage').textContent = metrics.memory_usage || '--';
+                }
+            } catch (error) {
+                console.error('Error updating metrics:', error);
+            }
+        }
+
+        function exportMetrics() {
+            // Implementation for exporting metrics data
+            showAlert('Metrics export feature coming soon!', 'info');
+        }
+
+        // Model library functions
+        async function getRecommendations() {
+            const taskType = document.getElementById('task-type').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/recommendations?task_type=${taskType}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayRecommendations(data.recommendations, taskType);
+                } else {
+                    showAlert('Failed to get recommendations', 'error');
+                }
+            } catch (error) {
+                console.error('Error getting recommendations:', error);
+                showAlert('Failed to get recommendations', 'error');
+            }
+        }
+
+        function displayRecommendations(recommendations, taskType) {
+            const container = document.getElementById('recommendations');
+            
+            if (!recommendations || recommendations.length === 0) {
+                container.innerHTML = '<p>No recommendations available for this task type.</p>';
+                return;
+            }
+            
+            const recommendationsHtml = recommendations.map(rec => `
+                <div class="model-item">
+                    <div class="model-name">${rec.name}</div>
+                    <div class="model-size">Score: ${rec.score}/10</div>
+                    <div class="model-status status-ready">${rec.reason}</div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = `
+                <h3>Recommendations for ${taskType}:</h3>
+                <div class="model-grid">
+                    ${recommendationsHtml}
+                </div>
+            `;
+        }
+
+        function compareModels() {
+            // Implementation for model comparison
+            showAlert('Model comparison feature coming soon!', 'info');
+        }
+
+        // Utility functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function selectModel(modelName) {
+            // Implementation for model selection
+            showAlert(`Selected model: ${modelName}`, 'info');
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshStatus, 30000);
+    </script>
+</body>
+</html>

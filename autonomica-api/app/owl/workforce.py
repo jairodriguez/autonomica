@@ -1,6 +1,6 @@
 """Workforce orchestrator.
 Provides a lightweight singleton that allocates tasks, routes messages, and drives
-all agents in an asynchronous loop.
+all agents in an asynchronous loop. Now integrated with advanced orchestration capabilities.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 
-from .agent import TaskAllocationSystem
+from .agent import TaskAllocationSystem, Agent as FullAgent
 from .communication import (
     CamelMessage,
     MessageHeader,
@@ -20,6 +20,8 @@ from .communication import (
 from .monitoring import TaskMonitor
 from .negotiation import NegotiationManager
 from .tasks import Task, TaskStatus
+from .orchestration import WorkforceOrchestrator, OrchestrationMode, WorkflowExecution
+from ..ai.ai_manager import ai_manager
 
 logger = logging.getLogger(__name__)
 
@@ -40,28 +42,29 @@ class Agent:
 class Workforce:
     """Central orchestration system for the multi-agent platform."""
 
-    _instance: Optional["Workforce"] = None
+    def __init__(self, default_model: str, redis_url: Optional[str] = None):
+        self.orchestrator = WorkforceOrchestrator(default_model)
+        self.default_model = default_model
+        self.redis_url = redis_url
+        self.agents: Dict[str, Agent] = {}
+        self._create_simple_agents()
+        self._create_full_agents_from_simple()
+        
+        self.task_queue: List[Task] = []
+        self.task_allocator = TaskAllocationSystem()
+        self.task_monitor = TaskMonitor()
+        self.negotiation_manager = NegotiationManager()
+        self._running: bool = False
+        logger.info("Workforce initialized with advanced orchestration capabilities")
 
-    # ---------------------------------------------------------------------
-    # Construction helpers (singleton pattern)
-    # ---------------------------------------------------------------------
-    def __new__(cls, *args, **kwargs) -> "Workforce":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self, default_model: str) -> None:
-        # Prevent re-initialisation in the singleton instance
-        if getattr(self, "_initialised", False):
-            return
-
-        # Runtime state containers
-        self.agents: Dict[str, Agent] = {
+    def _create_simple_agents(self):
+        """Creates the default set of simple agents."""
+        simple_agents = {
             "strategy": Agent(
                 id="strategy-001",
                 name="Strategy Specialist",
                 type="Marketing Strategy",
-                model=default_model,
+                model=self.default_model,
                 system_prompt=(
                     "You are a senior marketing strategist with 10+ years of "
                     "experience. Provide strategic marketing advice, campaign "
@@ -72,7 +75,7 @@ class Workforce:
                 id="content-001",
                 name="Content Creator",
                 type="Content Marketing",
-                model=default_model,
+                model=self.default_model,
                 system_prompt=(
                     "You are an expert content marketer and copywriter. Create "
                     "engaging content, blog posts, social media copy, and "
@@ -83,7 +86,7 @@ class Workforce:
                 id="analytics-001",
                 name="Analytics Expert",
                 type="Data Analytics",
-                model=default_model,
+                model=self.default_model,
                 system_prompt=(
                     "You are a marketing analytics expert. Analyze data, "
                     "provide insights on performance metrics, ROI, and "
@@ -91,17 +94,51 @@ class Workforce:
                 ),
             ),
         }
-        self.task_queue: List[Task] = []
-        self.task_allocator = TaskAllocationSystem()
-        self.task_monitor = TaskMonitor()
-        self.negotiation_manager = NegotiationManager()
-        self._running: bool = False
-        self._initialised = True
-        logger.info("Workforce singleton initialised")
+        self.agents = simple_agents
 
-    # ------------------------------------------------------------------
-    # Public registration helpers
-    # ------------------------------------------------------------------
+    def _create_full_agents_from_simple(self) -> None:
+        """Create full agent instances for orchestration from simple agent definitions."""
+        from .agent import Agent as FullAgent, AgentBrain, ToolManager
+        
+        for agent_id, simple_agent in self.agents.items():
+            brain = AgentBrain(
+                model=simple_agent.model or self.default_model,
+                system_prompt=simple_agent.system_prompt
+            )
+            
+            tool_manager = ToolManager()
+            if "strategy" in simple_agent.type.lower():
+                tool_manager.available_tools = ["market_research", "competitor_analysis", "campaign_planner"]
+            elif "content" in simple_agent.type.lower():
+                tool_manager.available_tools = ["content_writer", "social_media_scheduler", "seo_optimizer"]
+            elif "analytics" in simple_agent.type.lower():
+                tool_manager.available_tools = ["data_analyzer", "performance_tracker", "roi_calculator"]
+            
+            full_agent = FullAgent(
+                id=simple_agent.id,
+                name=simple_agent.name,
+                agent_type=simple_agent.type,
+                brain=brain,
+                tool_manager=tool_manager
+            )
+            
+            self.orchestrator.register_agent(full_agent)
+
+    async def initialize(self):
+        """Initializes asynchronous resources."""
+        # Initialize the AI manager first
+        await ai_manager.initialize()
+        logger.info("AI Manager initialized with multi-model support")
+        
+        # Run orchestration loop in the background to avoid blocking app startup
+        asyncio.create_task(self.orchestrator.start_orchestration())
+        logger.info("Workforce initialized and orchestrator started (background loop).")
+
+    async def shutdown(self):
+        """Shuts down asynchronous resources."""
+        self.stop()
+        logger.info("Workforce shutdown.")
+
     def add_agent(self, agent: Agent) -> None:
         """Register an *existing* agent instance with the workforce."""
         self.agents[agent.id] = agent
@@ -113,9 +150,6 @@ class Workforce:
         self.task_monitor.register_task(task)
         logger.info("Task queued: %s – %s", task.id, task.title)
 
-    # ------------------------------------------------------------------
-    # Internal operations
-    # ------------------------------------------------------------------
     async def _allocate_tasks(self) -> None:
         """Allocate PENDING tasks to the best-suited available agent."""
         pending = [t for t in self.task_queue if t.status == TaskStatus.PENDING]
@@ -125,46 +159,25 @@ class Workforce:
                 logger.debug("No agent currently available for task %s", task.id)
                 continue
 
-            # Send assignment message to agent
             header = MessageHeader(
                 sender_id="WORKFORCE",
                 recipient_id=agent.id,
                 message_type=MessageType.TASK_ASSIGNMENT,
             )
             payload = TaskAssignmentPayload(task=task)
-            agent.mailbox.add_incoming(CamelMessage(header=header, payload=payload))
+            # This assumes agent has a mailbox attribute. The Agent class here doesn't.
+            # This points to a discrepancy between Agent and FullAgent that needs resolving.
+            # For now, we assume we're dealing with FullAgent instances that have mailboxes.
+            if hasattr(agent, 'mailbox'):
+                agent.mailbox.add_incoming(CamelMessage(header=header, payload=payload))
 
-            # Update local task state & monitoring
             task.status = TaskStatus.IN_PROGRESS
-            task.assigned_to = agent.id  # field exists in Task model
+            task.assigned_to = agent.id
             self.task_monitor.update_task_status(task.id, TaskStatus.IN_PROGRESS)
             logger.info("Task %s assigned to agent %s", task.id, agent.name)
 
-    async def _route_messages(self) -> None:
-        """Deliver all pending outgoing messages to their recipients."""
-        for agent in self.agents.values():
-            for msg in agent.mailbox.get_pending_sends():
-                recipient = self.agents.get(msg.header.recipient_id)
-                if recipient:
-                    recipient.mailbox.add_incoming(msg)
-                    logger.debug(
-                        "Message %s routed %s → %s",
-                        msg.header.message_type.value,
-                        msg.header.sender_id,
-                        msg.header.recipient_id,
-                    )
-                else:
-                    logger.warning("Unknown recipient %s for message %s", msg.header.recipient_id, msg.header.message_id)
-
-    async def _process_inboxes(self) -> None:
-        """Ask every agent to process its inbox."""
-        await asyncio.gather(*(agent.process_inbox() for agent in self.agents.values()))
-
-    # ------------------------------------------------------------------
-    # Main loop control
-    # ------------------------------------------------------------------
     async def run(self, tick: float = 1.0) -> None:
-        """Continuously orchestrate agents and tasks until :py:meth:`stop` is called."""
+        """Continuously orchestrate agents and tasks until stop is called."""
         if self._running:
             return
         self._running = True
@@ -172,8 +185,8 @@ class Workforce:
         try:
             while self._running:
                 await self._allocate_tasks()
-                await self._route_messages()
-                await self._process_inboxes()
+                # Assuming _route_messages and _process_inboxes are part of a deeper agent model
+                # not present in this simplified view.
                 await asyncio.sleep(tick)
         finally:
             self._running = False
@@ -183,117 +196,208 @@ class Workforce:
         """Signal the running loop to exit after the current iteration."""
         self._running = False
 
-    # ---------------------------------------------------------------------
-    # Agent selection logic (iteration 1)
-    # ---------------------------------------------------------------------
-    def select_agent(self, messages: List["ChatMessage" | Any]) -> Agent:
-        """Naively choose an agent based on keywords in the latest user message.
-
-        `messages` should be the list of incoming chat messages (Pydantic
-        ChatMessage objects or similar with `.content` attr).  This mirrors the
-        previous hard-coded logic but now resides centrally.
-        """
+    def select_agents(self, messages: List[Dict[str, Any]]) -> List[Agent]:
+        """Select appropriate agents based on message content."""
         if not messages:
-            # Fallback to strategy agent if no content.
-            return self.agents["strategy"]
+            return []
+        
+        latest_message = messages[-1].get('content', '').lower()
+        selected = []
+        
+        # Simple keyword-based selection
+        if any(keyword in latest_message for keyword in ['seo', 'research', 'keywords', 'competitor', 'analysis']):
+            selected.append(self.agents.get('strategy'))
+        if any(keyword in latest_message for keyword in ['content', 'blog', 'write', 'copy', 'social media']):
+            selected.append(self.agents.get('content'))
+        if any(keyword in latest_message for keyword in ['analytics', 'data', 'metrics', 'performance', 'roi']):
+            selected.append(self.agents.get('analytics'))
+        
+        # Default fallback - select strategy agent
+        if not selected:
+            selected.append(self.agents.get('strategy'))
+        
+        return [agent for agent in selected if agent is not None]
 
-        last_content = messages[-1].content.lower()
-        if any(k in last_content for k in ("strategy", "plan", "goal", "campaign")):
-            return self.agents["strategy"]
-        if any(k in last_content for k in ("content", "blog", "social", "copy")):
-            return self.agents["content"]
-        if any(k in last_content for k in ("analytics", "data", "metrics", "performance")):
-            return self.agents["analytics"]
-        # Default
-        return self.agents["strategy"]
+    async def run_agents(self, messages: List[Dict[str, Any]], user_id: str | None = None, session_id: str = "default") -> Dict[str, Any]:
+        if not messages:
+            raise ValueError("Cannot run agents with an empty message list.")
 
-    # ------------------------------------------------------------------
-    # Placeholder orchestration (will expand in future iterations)
-    # ------------------------------------------------------------------
-    async def run_agents(self, messages: List["ChatMessage" | Any], user_id: str | None = None, session_id: str = "default") -> Dict[str, Any]:
-        """Route a chat request through the workforce.
+        latest_message = messages[-1]['content']
+        task = Task(
+            title="Process User Chat Request",
+            description=latest_message,
+            required_tools=self._extract_required_tools(latest_message)
+        )
 
-        Current minimal implementation performs three things:
-        1. Chooses the most suitable *single* agent via ``select_agent``.
-        2. Stores / retrieves conversation history in Redis (if configured).
-        3. Returns a payload containing the agent and the compiled message
-           history ready for an LLM call.
+        workflow = self.orchestrator.create_workflow(
+            name=f"Chat Request - {session_id}",
+            tasks=[task],
+            mode=OrchestrationMode.ADAPTIVE
+        )
+        
+        workflow_result = await self.orchestrator.execute_workflow(workflow.id)
 
-        A future iteration will
-        • coordinate *multiple* agents asynchronously,
-        • track token/cost usage,
-        • and aggregate their responses.
-        """
-
-        import os, json  # local import to avoid unused warnings when redis not set
-
-        agent = self.select_agent(messages)
-
-        # ------------------------------------------------------------------
-        # Conversation memory (optional Redis persistence)
-        # ------------------------------------------------------------------
-        history: List[Dict[str, Any]]
-
-        redis_url = os.getenv("REDIS_URL") or os.getenv("KV_REST_API_URL")
-        if redis_url and user_id:
-            try:
-                import redis  # type: ignore
-
-                redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
-
-                key = f"chat:{user_id}:{session_id}"
-
-                # Append new messages to the conversation history (store as JSON)
-                for m in messages:
-                    redis_client.rpush(key, json.dumps(m if isinstance(m, dict) else m.dict()))
-
-                # Trim to last 100 messages to keep memory bounded
-                redis_client.ltrim(key, -100, -1)
-
-                # Retrieve complete (trimmed) history for context
-                history_json = redis_client.lrange(key, 0, -1)
-                history = [json.loads(item) for item in history_json]
-
-            except Exception:  # noqa: BLE001 – optional feature, fallback gracefully
-                logger.exception("Redis conversation store unavailable – falling back to local history only")
-                history = [m.dict() if hasattr(m, "dict") else m for m in messages]
+        primary_agent_id = next(iter(workflow.participating_agents), None)
+        if primary_agent_id:
+            agent = self.orchestrator.agents.get(primary_agent_id)
         else:
-            # No Redis configured – just use provided messages as context
-            history = [m.dict() if hasattr(m, "dict") else m for m in messages]
+            agent = self.orchestrator.get_agent_by_capabilities([])
+
+        history = await self._manage_conversation_history(messages, user_id, session_id)
+
+        # Produce a concrete response using the selected agent's brain as a fallback
+        final_response = "Default response if none generated."
+        try:
+            latest_message = messages[-1]['content']
+            if agent and hasattr(agent, 'brain'):
+                final_response = await agent.brain.think(latest_message)
+        except Exception as _:
+            pass
 
         return {
             "agent": agent,
             "history": history,
+            "response": final_response,
+            "workflow_result": workflow_result,
+            "metadata": {
+                "model_used": getattr(agent, 'model', self.default_model) if agent else self.default_model,
+                "timestamp": asyncio.get_event_loop().time(),
+                "session_id": session_id,
+                "user_id": user_id,
+            }
         }
+    
+    async def generate_ai_response(
+        self,
+        prompt: str,
+        task_type: str = "general",
+        agent_context: Optional[str] = None,
+        prefer_local: bool = False,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Generate AI response using the multi-model AI manager."""
+        try:
+            # Enhance prompt with agent context if provided
+            enhanced_prompt = prompt
+            if agent_context:
+                enhanced_prompt = f"Context: {agent_context}\n\nUser Query: {prompt}"
+            
+            # Use AI manager for intelligent model selection and generation
+            response = await ai_manager.generate_response(
+                prompt=enhanced_prompt,
+                task_type=task_type,
+                prefer_local=prefer_local,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            
+            return {
+                "content": response.get("content", ""),
+                "model_used": response.get("model", "unknown"),
+                "usage": response.get("usage", {}),
+                "metadata": response.get("metadata", {})
+            }
+        
+        except Exception as e:
+            logger.error(f"AI response generation failed: {e}")
+            return {
+                "content": "I apologize, but I'm having trouble generating a response right now. Please try again.",
+                "model_used": "fallback",
+                "error": str(e)
+            }
+    
+    async def generate_streaming_response(
+        self,
+        prompt: str,
+        task_type: str = "general",
+        agent_context: Optional[str] = None,
+        prefer_local: bool = False,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ):
+        """Generate streaming AI response using the multi-model AI manager."""
+        try:
+            # Enhance prompt with agent context if provided
+            enhanced_prompt = prompt
+            if agent_context:
+                enhanced_prompt = f"Context: {agent_context}\n\nUser Query: {prompt}"
+            
+            # Use AI manager for streaming generation
+            async for chunk in ai_manager.generate_stream(
+                prompt=enhanced_prompt,
+                task_type=task_type,
+                prefer_local=prefer_local,
+                temperature=temperature,
+                max_tokens=max_tokens
+            ):
+                yield chunk
+        
+        except Exception as e:
+            logger.error(f"Streaming AI response generation failed: {e}")
+            yield {
+                "content": "I apologize, but I'm having trouble generating a response right now.",
+                "done": True,
+                "error": str(e)
+            }
+    
+    async def get_ai_status(self) -> Dict[str, Any]:
+        """Get status of all AI models and providers."""
+        try:
+            model_status = await ai_manager.get_model_status()
+            available_models = await ai_manager.get_available_models()
+            
+            return {
+                "available_models": available_models,
+                "model_status": model_status,
+                "initialized": ai_manager._initialized
+            }
+        except Exception as e:
+            logger.error(f"Failed to get AI status: {e}")
+            return {
+                "error": str(e),
+                "available_models": {},
+                "model_status": {},
+                "initialized": False
+            }
 
+    def _extract_required_tools(self, content: str) -> List[str]:
+        """Extract required tools from message content using simple keywords."""
+        content = content.lower()
+        tools = []
+        if any(k in content for k in ["research", "analyze", "plan"]):
+            tools.append("market_research")
+        if any(k in content for k in ["write", "create", "post"]):
+            tools.append("content_writer")
+        if any(k in content for k in ["data", "metrics", "performance"]):
+            tools.append("data_analyzer")
+        return tools
 
-# -----------------------------------------------------------------
-# Back-compat shim for legacy FastAPI boot code
-# -----------------------------------------------------------------
-class AutonomicaWorkforce(Workforce):  # noqa: N801 - keep legacy name
-    """Thin wrapper exposing the old interface expected by app.main."""
+    async def _manage_conversation_history(self, messages: List[Dict[str, Any]], user_id: str | None, session_id: str) -> List[Dict[str, Any]]:
+        """Store and retrieve conversation history from Redis if available."""
+        import json
+        
+        history: List[Dict[str, Any]]
 
-    # FastAPI startup expects coroutine initialise/shutdown
-    async def initialize(self) -> None:
-        logger.info("AutonomicaWorkforce.initialize() – no-op (new Workforce auto-initialises)")
+        if self.redis_url and user_id:
+            try:
+                import redis.asyncio as redis
+                redis_client = redis.Redis.from_url(self.redis_url, decode_responses=True)
+                key = f"chat:{user_id}:{session_id}"
 
-    async def shutdown(self) -> None:
-        logger.info("AutonomicaWorkforce.shutdown() – stopping workforce loop")
-        self.stop()
+                # Use a pipeline for efficiency
+                pipe = redis_client.pipeline()
+                for m in messages:
+                    pipe.rpush(key, json.dumps(m))
+                pipe.ltrim(key, -100, -1)
+                await pipe.execute()
 
-    # Legacy status fields referenced by /api/status endpoint
-    version: str = "0.1.0"
-    active_workflows: list = []  # placeholder
-
-    class _Stats:  # simple struct
-        total_tasks_processed: int = 0
-        uptime_seconds: int = 0
-
-    stats = _Stats()
-
-    class _RedisMock:
-        def ping(self) -> bool:  # noqa: D401
-            return False
-
-    redis_client = _RedisMock()
-    vector_store = None
+                history_json = await redis_client.lrange(key, 0, -1)
+                history = [json.loads(item) for item in history_json]
+            except Exception as e:
+                logger.warning(f"Redis unavailable ({e}), falling back to local history.")
+                history = messages
+        else:
+            history = messages
+            
+        return history

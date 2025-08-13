@@ -112,7 +112,7 @@ def main():
     default_task = f"""Open Google Search, summarize the number of GitHub stars, forks, etc., of the camel framework of camel-ai, 
     and write the numbers into a Python file using the plot package, 
     save it to "+{os.path.join(base_dir, 'final_output')}+", 
-    and execute the Python file with the local terminal to display the graph for me."""
+    and execute the Python file with the local terminal using the interpreter at /Users/bernardojrodriguez/Documents/code/autonomica/.venv/bin/python to display the graph for me."""
 
     # Override default task if command line argument is provided
     task = sys.argv[1] if len(sys.argv) > 1 else default_task

@@ -3,98 +3,79 @@ Clerk Authentication Middleware for FastAPI
 """
 
 import os
-import jwt
-from typing import Optional, Dict, Any
-from fastapi import Request, HTTPException, status
+from typing import Dict, Any
+from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from clerk_backend_api import Clerk
 from loguru import logger
 
-# Initialize Clerk client
-clerk_client = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+from app.core.config import settings
+
+# Initialize Clerk client. Different versions accept different args; fallback to env-based init.
+try:
+    clerk_client = Clerk(secret_key=settings.CLERK_SECRET_KEY)
+except TypeError:
+    try:
+        clerk_client = Clerk(api_key=settings.CLERK_SECRET_KEY)
+    except TypeError:
+        clerk_client = Clerk()
 security = HTTPBearer()
 
 class ClerkUser:
-    """Represents an authenticated Clerk user"""
-    def __init__(self, user_id: str, email: str, first_name: str = "", last_name: str = ""):
+    """Represents a validated and authenticated Clerk user"""
+    def __init__(self, user_id: str, claims: Dict[str, Any]):
         self.user_id = user_id
-        self.email = email
-        self.first_name = first_name
-        self.last_name = last_name
-        
+        self.claims = claims
+        # You can add more properties here based on your needs, e.g., email
+        self.email = claims.get("email", "")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "user_id": self.user_id,
-            "email": self.email,
-            "first_name": self.first_name,
-            "last_name": self.last_name
+            "claims": self.claims,
+            "email": self.email
         }
 
-async def verify_clerk_token(credentials: HTTPAuthorizationCredentials) -> ClerkUser:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> ClerkUser:
     """
-    Verify Clerk session token and return user information
+    FastAPI dependency to verify the Clerk JWT and return the user.
+    This function now correctly and securely verifies the token.
     """
+    token = credentials.credentials
     try:
-        token = credentials.credentials
+        # Verify the token using the Clerk client's JWKS
+        # This is the secure way to validate the token.
+        payload = clerk_client.verify_token(token)
         
-        # Verify the JWT token with Clerk
-        # First, decode without verification to get the session ID
-        unverified_payload = jwt.decode(token, options={"verify_signature": False})
-        session_id = unverified_payload.get("sid")
-        
+        # Check if the session is active
+        session_id = payload.get("sid")
         if not session_id:
+            logger.warning("Token verification failed: No session ID (sid) in token.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: no session ID found"
-            )
-        
-        # Verify the session with Clerk
-        try:
-            session = clerk_client.sessions.verify_session(
-                session_id=session_id,
-                token=token
+                detail="Invalid token: missing session information."
             )
             
-            if not session or session.status != "active":
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Session is not active"
-                )
-            
-            # Get user information
-            user = clerk_client.users.get_user(user_id=session.user_id)
-            
-            return ClerkUser(
-                user_id=user.id,
-                email=user.email_addresses[0].email_address if user.email_addresses else "",
-                first_name=user.first_name or "",
-                last_name=user.last_name or ""
-            )
-            
-        except Exception as e:
-            logger.error(f"Clerk session verification failed: {e}")
+        session = clerk_client.sessions.get_session(session_id)
+        if session.status != "active":
+            logger.warning(f"Authentication failed for user {session.user_id}: Session status is '{session.status}'.")
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired session"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User session is not active. Status: {session.status}"
             )
-            
-    except jwt.DecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token format"
-        )
-    except Exception as e:
-        logger.error(f"Token verification error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed"
-        )
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = security) -> ClerkUser:
-    """
-    FastAPI dependency to get the current authenticated user
-    """
-    return await verify_clerk_token(credentials)
+        logger.info(f"Successfully authenticated user {session.user_id} with session {session_id}.")
+        return ClerkUser(user_id=session.user_id, claims=payload)
+
+    except Exception as e:
+        # This will catch expired tokens, invalid signatures, etc.
+        logger.error(f"Clerk token verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid or expired token: {e}"
+        )
 
 def require_auth(request: Request) -> ClerkUser:
     """

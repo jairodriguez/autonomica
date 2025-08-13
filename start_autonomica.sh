@@ -21,7 +21,7 @@ fi
 echo "🚀 Starting Production Backend API..."
 cd autonomica-api
 source venv/bin/activate
-python main_api.py &
+autonomica-api/venv/bin/python main_api.py > backend.log 2>&1 &
 BACKEND_PID=$!
 echo "✅ Production API started (PID: $BACKEND_PID) on http://localhost:8000"
 

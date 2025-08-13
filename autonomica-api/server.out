@@ -1,0 +1,59 @@
+Traceback (most recent call last):
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/bin/uvicorn", line 7, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/click/core.py", line 1442, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/click/core.py", line 1363, in main
+    rv = self.invoke(ctx)
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/click/core.py", line 1226, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/click/core.py", line 794, in invoke
+    return callback(*args, **kwargs)
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 416, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 587, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 68, in serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 467, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 21, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/app/main.py", line 20, in <module>
+    from app.auth.clerk_middleware import get_current_user, ClerkUser
+  File "/Users/bernardojrodriguez/Documents/code/autonomica/autonomica-api/app/auth/clerk_middleware.py", line 15, in <module>
+    clerk_client = Clerk(api_key=settings.CLERK_SECRET_KEY)
+TypeError: Clerk.__init__() got an unexpected keyword argument 'api_key'
