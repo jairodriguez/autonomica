@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException, Depends, Request, Query
+from fastapi import FastAPI, HTTPException, Depends, Request, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -701,6 +701,574 @@ async def get_ollama_performance_monitoring_status(
             "success": False,
             "error": str(e),
             "status": {}
+        }
+
+# --- Ollama Extended Model Library Endpoints ---
+
+@app.get("/api/ai/ollama/models/library")
+async def get_model_library(request: Request, current_user: ClerkUser = Depends(get_current_user)):
+    """Get comprehensive model library information"""
+    logger.info(f"User {current_user.user_id} requesting model library information.")
+    
+    try:
+        from .ai.ollama_model_library import ollama_model_library
+        categories = await ollama_model_library.get_model_categories()
+        
+        return {
+            "success": True,
+            "categories": {cat.value: models for cat, models in categories.items()}
+        }
+    except Exception as e:
+        logger.error(f"Failed to get model library: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "categories": {}
+        }
+
+@app.get("/api/ai/ollama/models/search")
+async def search_models(
+    query: str,
+    category: Optional[str] = None,
+    size: Optional[str] = None,
+    min_performance: Optional[float] = None,
+    max_parameters: Optional[int] = None,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Search models with filters"""
+    logger.info(f"User {current_user.user_id} searching models with query: {query}")
+    
+    try:
+        from .ai.ollama_model_library import ollama_model_library
+        
+        filters = {}
+        if category:
+            filters["category"] = category
+        if size:
+            filters["size"] = size
+        if min_performance:
+            filters["min_performance"] = min_performance
+        if max_parameters:
+            filters["max_parameters"] = max_parameters
+        
+        results = await ollama_model_library.search_models(query, filters)
+        
+        return {
+            "success": True,
+            "query": query,
+            "filters": filters,
+            "results": results,
+            "count": len(results)
+        }
+    except Exception as e:
+        logger.error(f"Failed to search models: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "results": []
+        }
+
+@app.get("/api/ai/ollama/models/recommendations")
+async def get_model_recommendations(
+    task_type: str,
+    preferred_size: Optional[str] = None,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Get model recommendations for a specific task"""
+    logger.info(f"User {current_user.user_id} requesting model recommendations for task: {task_type}")
+    
+    try:
+        from .ai.ollama_model_library import ollama_model_library
+        
+        # Mock system info for now - in production, this would come from actual system monitoring
+        system_info = {
+            "available_memory_gb": 16.0,
+            "gpu_available": True,
+            "gpu_memory_gb": 8.0,
+            "high_performance_cpu": True
+        }
+        
+        preferences = {}
+        if preferred_size:
+            preferences["preferred_size"] = preferred_size
+        
+        recommendations = await ollama_model_library.get_model_recommendations(task_type, system_info, preferences)
+        
+        return {
+            "success": True,
+            "task_type": task_type,
+            "system_info": system_info,
+            "preferences": preferences,
+            "recommendations": [
+                {
+                    "model_name": rec.model_name,
+                    "confidence_score": rec.confidence_score,
+                    "reasoning": rec.reasoning,
+                    "expected_performance": rec.expected_performance,
+                    "alternatives": rec.alternatives,
+                    "trade_offs": rec.trade_offs
+                }
+                for rec in recommendations
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Failed to get model recommendations: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "recommendations": []
+        }
+
+@app.get("/api/ai/ollama/models/compatibility/{model_name}")
+async def check_model_compatibility(
+    model_name: str,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Check model compatibility with current system"""
+    logger.info(f"User {current_user.user_id} checking compatibility for model: {model_name}")
+    
+    try:
+        from .ai.ollama_model_library import ollama_model_library
+        
+        # Mock system info for now
+        system_info = {
+            "available_memory_gb": 16.0,
+            "gpu_available": True,
+            "gpu_memory_gb": 8.0,
+            "high_performance_cpu": True
+        }
+        
+        compatibility = await ollama_model_library.check_model_compatibility(model_name, system_info)
+        
+        return {
+            "success": True,
+            "model_name": model_name,
+            "compatibility": {
+                "compatibility_score": compatibility.compatibility_score,
+                "hardware_compatibility": compatibility.hardware_compatibility,
+                "warnings": compatibility.warnings,
+                "recommendations": compatibility.recommendations,
+                "performance_estimate": compatibility.performance_estimate
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to check model compatibility: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "compatibility": {}
+        }
+
+@app.get("/api/ai/ollama/models/compare")
+async def compare_models(
+    models: str,  # Comma-separated model names
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Compare multiple models side by side"""
+    logger.info(f"User {current_user.user_id} comparing models: {models}")
+    
+    try:
+        from .ai.ollama_model_library import ollama_model_library
+        
+        model_names = [name.strip() for name in models.split(",")]
+        comparison = await ollama_model_library.get_model_comparison(model_names)
+        
+        return {
+            "success": True,
+            "models": comparison["models"],
+            "comparison_table": comparison["comparison_table"],
+            "recommendations": comparison["recommendations"]
+        }
+    except Exception as e:
+        logger.error(f"Failed to compare models: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "comparison": {}
+        }
+
+# --- Ollama Fine-Tuning Endpoints ---
+
+@app.post("/api/ai/ollama/fine-tuning/create")
+async def create_fine_tuning_job(
+    request: Request,
+    current_user: ClerkUser = Depends(get_current_user),
+    base_model: str = Form(...),
+    target_model_name: str = Form(...),
+    training_data_path: str = Form(...),
+    data_type: str = Form(...),
+    hyperparameters: str = Form("balanced"),  # JSON string or preset name
+    target_capabilities: Optional[str] = Form(None)  # JSON string
+):
+    """Create a new fine-tuning job"""
+    logger.info(f"User {current_user.user_id} creating fine-tuning job for {target_model_name}")
+    
+    try:
+        from .ai.ollama_fine_tuning import ollama_fine_tuning_manager, TrainingData
+        
+        # Parse hyperparameters
+        if hyperparameters in ["efficient", "balanced", "high_quality", "custom"]:
+            hyperparam_preset = hyperparameters
+        else:
+            try:
+                hyperparam_preset = json.loads(hyperparameters)
+            except json.JSONDecodeError:
+                hyperparam_preset = "balanced"
+        
+        # Parse target capabilities
+        capabilities = set()
+        if target_capabilities:
+            try:
+                cap_list = json.loads(target_capabilities)
+                from .ai.ollama_model_library import ModelCapability
+                capabilities = {ModelCapability(cap) for cap in cap_list}
+            except (json.JSONDecodeError, ValueError):
+                pass
+        
+        # Create training data
+        training_data = TrainingData(
+            data_path=training_data_path,
+            data_type=data_type
+        )
+        
+        # Create fine-tuning job
+        job = await ollama_fine_tuning_manager.create_fine_tuning_job(
+            base_model=base_model,
+            target_model_name=target_model_name,
+            training_data=training_data,
+            hyperparameters=hyperparam_preset,
+            target_capabilities=capabilities
+        )
+        
+        return {
+            "success": True,
+            "job_id": job.job_id,
+            "status": job.status.value,
+            "message": f"Fine-tuning job created successfully"
+        }
+    except Exception as e:
+        logger.error(f"Failed to create fine-tuning job: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/ai/ollama/fine-tuning/start/{job_id}")
+async def start_fine_tuning(
+    job_id: str,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Start a fine-tuning job"""
+    logger.info(f"User {current_user.user_id} starting fine-tuning job {job_id}")
+    
+    try:
+        from .ai.ollama_fine_tuning import ollama_fine_tuning_manager
+        
+        success = await ollama_fine_tuning_manager.start_training(job_id)
+        
+        return {
+            "success": success,
+            "job_id": job_id,
+            "message": "Fine-tuning job started successfully" if success else "Failed to start fine-tuning job"
+        }
+    except Exception as e:
+        logger.error(f"Failed to start fine-tuning job {job_id}: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.get("/api/ai/ollama/fine-tuning/status/{job_id}")
+async def get_fine_tuning_status(
+    job_id: str,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Get fine-tuning job status"""
+    logger.info(f"User {current_user.user_id} checking fine-tuning job {job_id}")
+    
+    try:
+        from .ai.ollama_fine_tuning import ollama_fine_tuning_manager
+        
+        job = await ollama_fine_tuning_manager.get_training_status(job_id)
+        
+        if job:
+            return {
+                "success": True,
+                "job": {
+                    "job_id": job.job_id,
+                    "base_model": job.base_model,
+                    "target_model_name": job.target_model_name,
+                    "status": job.status.value,
+                    "current_phase": job.current_phase.value,
+                    "progress": job.progress,
+                    "start_time": job.start_time.isoformat() if job.start_time else None,
+                    "end_time": job.end_time.isoformat() if job.end_time else None,
+                    "error_message": job.error_message,
+                    "logs": job.logs[-10:]  # Last 10 log entries
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Job not found"
+            }
+    except Exception as e:
+        logger.error(f"Failed to get fine-tuning status: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.get("/api/ai/ollama/fine-tuning/jobs")
+async def list_fine_tuning_jobs(
+    status: Optional[str] = None,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """List fine-tuning jobs"""
+    logger.info(f"User {current_user.user_id} listing fine-tuning jobs")
+    
+    try:
+        from .ai.ollama_fine_tuning import ollama_fine_tuning_manager, TrainingStatus
+        
+        status_filter = None
+        if status:
+            try:
+                status_filter = TrainingStatus(status)
+            except ValueError:
+                pass
+        
+        jobs = await ollama_fine_tuning_manager.list_training_jobs(status_filter)
+        
+        return {
+            "success": True,
+            "jobs": [
+                {
+                    "job_id": job.job_id,
+                    "base_model": job.base_model,
+                    "target_model_name": job.target_model_name,
+                    "status": job.status.value,
+                    "current_phase": job.current_phase.value,
+                    "progress": job.progress,
+                    "start_time": job.start_time.isoformat() if job.start_time else None,
+                    "end_time": job.end_time.isoformat() if job.end_time else None
+                }
+                for job in jobs
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Failed to list fine-tuning jobs: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "jobs": []
+        }
+
+# --- Ollama Parameter Optimization Endpoints ---
+
+@app.post("/api/ai/ollama/optimization/create")
+async def create_optimization_session(
+    request: Request,
+    current_user: ClerkUser = Depends(get_current_user),
+    model_name: str = Form(...),
+    objective: str = Form(...),
+    strategy: str = Form("bayesian_optimization"),
+    model_type: str = Form("general")
+):
+    """Create a new parameter optimization session"""
+    logger.info(f"User {current_user.user_id} creating optimization session for {model_name}")
+    
+    try:
+        from .ai.ollama_parameter_optimizer import (
+            ollama_parameter_optimizer, 
+            OptimizationObjective, 
+            OptimizationStrategy
+        )
+        
+        # Parse enums
+        try:
+            opt_objective = OptimizationObjective(objective)
+        except ValueError:
+            return {
+                "success": False,
+                "error": f"Invalid objective: {objective}. Valid options: {[obj.value for obj in OptimizationObjective]}"
+            }
+        
+        try:
+            opt_strategy = OptimizationStrategy(strategy)
+        except ValueError:
+            return {
+                "success": False,
+                "error": f"Invalid strategy: {strategy}. Valid options: {[strat.value for strat in OptimizationStrategy]}"
+            }
+        
+        # Create optimization session
+        session = await ollama_parameter_optimizer.create_optimization_session(
+            model_name=model_name,
+            objective=opt_objective,
+            strategy=opt_strategy,
+            model_type=model_type
+        )
+        
+        return {
+            "success": True,
+            "session_id": session.session_id,
+            "model_name": session.model_name,
+            "objective": session.config.objective.value,
+            "strategy": session.config.strategy.value,
+            "message": "Optimization session created successfully"
+        }
+    except Exception as e:
+        logger.error(f"Failed to create optimization session: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/ai/ollama/optimization/start/{session_id}")
+async def start_optimization(
+    session_id: str,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Start parameter optimization"""
+    logger.info(f"User {current_user.user_id} starting optimization session {session_id}")
+    
+    try:
+        from .ai.ollama_parameter_optimizer import ollama_parameter_optimizer
+        
+        success = await ollama_parameter_optimizer.start_optimization(session_id)
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "message": "Optimization started successfully" if success else "Failed to start optimization"
+        }
+    except Exception as e:
+        logger.error(f"Failed to start optimization: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.get("/api/ai/ollama/optimization/status/{session_id}")
+async def get_optimization_status(
+    session_id: str,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Get optimization session status"""
+    logger.info(f"User {current_user.user_id} checking optimization session {session_id}")
+    
+    try:
+        from .ai.ollama_parameter_optimizer import ollama_parameter_optimizer
+        
+        session = await ollama_parameter_optimizer.get_optimization_status(session_id)
+        
+        if session:
+            return {
+                "success": True,
+                "session": {
+                    "session_id": session.session_id,
+                    "model_name": session.model_name,
+                    "status": session.status,
+                    "objective": session.config.objective.value,
+                    "strategy": session.config.strategy.value,
+                    "start_time": session.start_time.isoformat(),
+                    "end_time": session.end_time.isoformat() if session.end_time else None,
+                    "current_iteration": session.current_iteration,
+                    "best_result": {
+                        "overall_score": session.best_result.overall_score,
+                        "parameters": session.best_result.parameters
+                    } if session.best_result else None
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Session not found"
+            }
+    except Exception as e:
+        logger.error(f"Failed to get optimization status: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.get("/api/ai/ollama/optimization/sessions")
+async def list_optimization_sessions(
+    status: Optional[str] = None,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """List optimization sessions"""
+    logger.info(f"User {current_user.user_id} listing optimization sessions")
+    
+    try:
+        from .ai.ollama_parameter_optimizer import ollama_parameter_optimizer
+        
+        sessions = await ollama_parameter_optimizer.list_optimization_sessions(status)
+        
+        return {
+            "success": True,
+            "sessions": [
+                {
+                    "session_id": session.session_id,
+                    "model_name": session.model_name,
+                    "status": session.status,
+                    "objective": session.config.objective.value,
+                    "strategy": session.config.strategy.value,
+                    "start_time": session.start_time.isoformat(),
+                    "end_time": session.end_time.isoformat() if session.end_time else None,
+                    "current_iteration": session.current_iteration
+                }
+                for session in sessions
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Failed to list optimization sessions: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "jobs": []
+        }
+
+@app.get("/api/ai/ollama/optimization/best-parameters/{session_id}")
+async def get_best_parameters(
+    session_id: str,
+    request: Request = None,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Get best parameters from optimization session"""
+    logger.info(f"User {current_user.user_id} getting best parameters for session {session_id}")
+    
+    try:
+        from .ai.ollama_parameter_optimizer import ollama_parameter_optimizer
+        
+        best_params = await ollama_parameter_optimizer.get_best_parameters(session_id)
+        
+        if best_params:
+            return {
+                "success": True,
+                "session_id": session_id,
+                "best_parameters": best_params
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No best parameters found"
+            }
+    except Exception as e:
+        logger.error(f"Failed to get best parameters: {e}")
+        return {
+            "success": False,
+            "error": str(e)
         }
 
 # --- Main execution ---
