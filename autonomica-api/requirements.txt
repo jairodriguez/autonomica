@@ -35,6 +35,11 @@ flower==2.0.1
 httpx==0.25.2
 websockets==12.0
 
+# SEO and Web Scraping
+beautifulsoup4==4.12.2
+lxml==4.9.3
+playwright==1.40.0
+
 # Authentication and Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4

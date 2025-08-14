@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
     AI_MODEL: str = Field(default="gpt-4-turbo", env="AI_MODEL")
     
+    # SEO & Marketing APIs
+    SEMRUSH_API_KEY: Optional[str] = Field(default=None, env="SEMRUSH_API_KEY")
+    AHREFS_API_KEY: Optional[str] = Field(default=None, env="AHREFS_API_KEY")
+    MOZ_API_KEY: Optional[str] = Field(default=None, env="MOZ_API_KEY")
+    
     # Agent Configuration
     MAX_AGENTS: int = Field(default=10, env="MAX_AGENTS")
     AGENT_TIMEOUT_SECONDS: int = Field(default=300, env="AGENT_TIMEOUT_SECONDS")
