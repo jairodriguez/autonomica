@@ -1,0 +1,92 @@
+groups:
+  - name: autonomica_alerts
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 5 minutes"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is below 15% on {{ $labels.mountpoint }}"
+
+      # API Response Time High
+      - alert: APIResponseTimeHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile of API response time is above 2 seconds"
+
+      # API Error Rate High
+      - alert: APIErrorRateHigh
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate"
+          description: "Error rate is above 5% for more than 2 minutes"
+
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+      # High Request Rate
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request rate"
+          description: "Request rate is above 1000 requests per second"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionIssues
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection issues"
+          description: "Unable to connect to the database"
+
+      # Worker Queue Backlog
+      - alert: WorkerQueueBacklog
+        expr: autonomica_worker_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker queue backlog"
+          description: "Worker queue has more than 100 pending tasks"

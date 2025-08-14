@@ -1,0 +1,395 @@
+groups:
+  - name: autonomica_system_alerts
+    rules:
+      # System Resource Alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes. Current value: {{ $value }}%"
+          dashboard: "System Overview"
+          runbook: "Check for runaway processes, high load, or resource-intensive operations"
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 95% for more than 2 minutes. Current value: {{ $value }}%"
+          dashboard: "System Overview"
+          runbook: "Immediate investigation required. Check for system hang, infinite loops, or denial of service"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 5 minutes. Current value: {{ $value }}%"
+          dashboard: "System Overview"
+          runbook: "Check for memory leaks, large caches, or insufficient RAM"
+
+      - alert: CriticalMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 95% for more than 2 minutes. Current value: {{ $value }}%"
+          dashboard: "System Overview"
+          runbook: "System may become unresponsive. Check for memory leaks or restart services"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is below 15% on {{ $labels.mountpoint }}. Available: {{ $value }}%"
+          dashboard: "System Overview"
+          runbook: "Clean up old logs, temporary files, or increase disk space"
+
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 5
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Disk space is below 5% on {{ $labels.mountpoint }}. Available: {{ $value }}%"
+          dashboard: "System Overview"
+          runbook: "Immediate action required. System may crash. Clean up or expand storage"
+
+      - alert: HighLoadAverage
+        expr: node_load1 > count(node_cpu_seconds_total{mode="idle"}) * 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          service: infrastructure
+        annotations:
+          summary: "High system load on {{ $labels.instance }}"
+          description: "1-minute load average is above 80% of CPU cores. Current value: {{ $value }}"
+          dashboard: "System Overview"
+          runbook: "Check for high CPU usage, I/O wait, or system bottlenecks"
+
+  - name: autonomica_application_alerts
+    rules:
+      # API Performance Alerts
+      - alert: APIResponseTimeHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+          service: api
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile of API response time is above 2 seconds. Current value: {{ $value }}s"
+          dashboard: "API Performance"
+          runbook: "Check database performance, external API calls, or resource constraints"
+
+      - alert: APIResponseTimeCritical
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          category: application
+          service: api
+        annotations:
+          summary: "Critical API response time"
+          description: "95th percentile of API response time is above 5 seconds. Current value: {{ $value }}s"
+          dashboard: "API Performance"
+          runbook: "Immediate investigation required. Check for system overload or failures"
+
+      - alert: APIErrorRateHigh
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+          service: api
+        annotations:
+          summary: "High API error rate"
+          description: "Error rate is above 5% for more than 5 minutes. Current value: {{ $value }}%"
+          dashboard: "API Performance"
+          runbook: "Check application logs, database connectivity, or external dependencies"
+
+      - alert: APIErrorRateCritical
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 20
+        for: 2m
+        labels:
+          severity: critical
+          category: application
+          service: api
+        annotations:
+          summary: "Critical API error rate"
+          description: "Error rate is above 20% for more than 2 minutes. Current value: {{ $value }}%"
+          dashboard: "API Performance"
+          runbook: "Major system issue. Check application health, restart services if needed"
+
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+          service: api
+        annotations:
+          summary: "High request rate"
+          description: "Request rate is above 1000 requests per second. Current value: {{ $value }} req/s"
+          dashboard: "API Performance"
+          runbook: "Check for traffic spikes, DDoS, or legitimate high load"
+
+      - alert: ExcessiveRequestRate
+        expr: rate(http_requests_total[5m]) > 5000
+        for: 2m
+        labels:
+          severity: critical
+          category: application
+          service: api
+        annotations:
+          summary: "Excessive request rate"
+          description: "Request rate is above 5000 requests per second. Current value: {{ $value }} req/s"
+          dashboard: "API Performance"
+          runbook: "Possible DDoS attack or system overload. Implement rate limiting or scale up"
+
+  - name: autonomica_service_alerts
+    rules:
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: service
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+          dashboard: "Service Health"
+          runbook: "Check service status, restart if needed, investigate root cause"
+
+      - alert: ServiceUnhealthy
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: warning
+          category: service
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is unhealthy"
+          description: "Service {{ $labels.job }} is responding but may have issues"
+          dashboard: "Service Health"
+          runbook: "Monitor service behavior, check logs for errors"
+
+      - alert: DatabaseConnectionIssues
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: service
+          service: database
+        annotations:
+          summary: "Database connection issues"
+          description: "Unable to connect to the database"
+          dashboard: "Database Health"
+          runbook: "Check database service, network connectivity, and credentials"
+
+      - alert: DatabaseSlowQueries
+        expr: histogram_quantile(0.95, rate(pg_stat_activity_max_tx_duration{datname!=""}[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          category: service
+          service: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile of query duration is above 30 seconds. Current value: {{ $value }}s"
+          dashboard: "Database Performance"
+          runbook: "Check for long-running queries, database locks, or resource constraints"
+
+  - name: autonomica_worker_alerts
+    rules:
+      # Worker Queue Alerts
+      - alert: WorkerQueueBacklog
+        expr: autonomica_worker_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: worker
+          service: worker
+        annotations:
+          summary: "Worker queue backlog"
+          description: "Worker queue has more than 100 pending tasks. Current value: {{ $value }}"
+          dashboard: "Worker Performance"
+          runbook: "Check worker health, increase worker instances, or investigate task processing"
+
+      - alert: WorkerQueueCritical
+        expr: autonomica_worker_queue_size > 500
+        for: 2m
+        labels:
+          severity: critical
+          category: worker
+          service: worker
+        annotations:
+          summary: "Critical worker queue backlog"
+          description: "Worker queue has more than 500 pending tasks. Current value: {{ $value }}"
+          dashboard: "Worker Performance"
+          runbook: "Immediate action required. Scale up workers or investigate system issues"
+
+      - alert: WorkerHighErrorRate
+        expr: rate(autonomica_worker_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: worker
+          service: worker
+        annotations:
+          summary: "High worker error rate"
+          description: "Worker error rate is above 0.1 errors per second. Current value: {{ $value }}"
+          dashboard: "Worker Performance"
+          runbook: "Check worker logs, investigate error patterns, restart workers if needed"
+
+      - alert: WorkerTaskProcessingSlow
+        expr: histogram_quantile(0.95, rate(autonomica_worker_task_duration_seconds_sum[5m]) / rate(autonomica_worker_task_duration_seconds_count[5m])) > 60
+        for: 5m
+        labels:
+          severity: warning
+          category: worker
+          service: worker
+        annotations:
+          summary: "Slow worker task processing"
+          description: "95th percentile of task processing time is above 60 seconds. Current value: {{ $value }}s"
+          dashboard: "Worker Performance"
+          runbook: "Check worker performance, investigate slow tasks, optimize processing"
+
+  - name: autonomica_business_alerts
+    rules:
+      # Business Logic Alerts
+      - alert: LowActiveAgents
+        expr: autonomica_active_agents < 5
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+          service: agents
+        annotations:
+          summary: "Low number of active agents"
+          description: "Number of active agents is below 5. Current value: {{ $value }}"
+          dashboard: "Agent Overview"
+          runbook: "Check agent health, restart failed agents, investigate agent failures"
+
+      - alert: NoActiveAgents
+        expr: autonomica_active_agents == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: business
+          service: agents
+        annotations:
+          summary: "No active agents"
+          description: "No agents are currently active. Current value: {{ $value }}"
+          dashboard: "Agent Overview"
+          runbook: "Critical issue. Check agent system, restart agent services, investigate root cause"
+
+      - alert: HighTaskFailureRate
+        expr: rate(autonomica_tasks_processed_total{status="error"}[5m]) / rate(autonomica_tasks_processed_total[5m]) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+          service: tasks
+        annotations:
+          summary: "High task failure rate"
+          description: "Task failure rate is above 10%. Current value: {{ $value }}%"
+          dashboard: "Task Performance"
+          runbook: "Investigate task failures, check error logs, review task configuration"
+
+      - alert: CriticalTaskFailureRate
+        expr: rate(autonomica_tasks_processed_total{status="error"}[5m]) / rate(autonomica_tasks_processed_total[5m]) * 100 > 50
+        for: 2m
+        labels:
+          severity: critical
+          category: business
+          service: tasks
+        annotations:
+          summary: "Critical task failure rate"
+          description: "Task failure rate is above 50%. Current value: {{ $value }}%"
+          dashboard: "Task Performance"
+          runbook: "Major system issue. Check system health, restart services, investigate immediately"
+
+  - name: autonomica_infrastructure_alerts
+    rules:
+      # Infrastructure Alerts
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) > 1000000000
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+          service: network
+        annotations:
+          summary: "High network traffic"
+          description: "Network receive traffic is above 1GB/s. Current value: {{ $value }} bytes/s"
+          dashboard: "Network Overview"
+          runbook: "Check for unusual traffic patterns, DDoS, or legitimate high load"
+
+      - alert: DiskIOWaitHigh
+        expr: rate(node_disk_io_time_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+          service: storage
+        annotations:
+          summary: "High disk I/O wait"
+          description: "Disk I/O wait time is above 80%. Current value: {{ $value }}"
+          dashboard: "Storage Performance"
+          runbook: "Check for high I/O operations, optimize queries, or upgrade storage"
+
+      - alert: SwapUsageHigh
+        expr: node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+          service: memory
+        annotations:
+          summary: "High swap usage"
+          description: "System is using swap memory. Current swap usage: {{ $value }} bytes"
+          dashboard: "Memory Overview"
+          runbook: "Check memory pressure, optimize memory usage, or increase RAM"
+
+      - alert: ProcessCountHigh
+        expr: node_procs_running > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+          service: system
+        annotations:
+          summary: "High process count"
+          description: "Number of running processes is above 1000. Current value: {{ $value }}"
+          dashboard: "System Overview"
+          runbook: "Check for process leaks, zombie processes, or system overload"
