@@ -1,0 +1,203 @@
+# Automated Rollback Configuration
+# This file configures the rollback system for production deployments
+
+rollback:
+  # General rollback settings
+  enabled: true
+  max_rollback_attempts: 3
+  rollback_cooldown: 300  # 5 minutes between rollback attempts
+  
+  # Health check thresholds for rollback triggers
+  health_check:
+    max_failure_rate: 0.1  # 10% failure rate threshold
+    max_response_time: 5000  # 5 seconds response time threshold
+    consecutive_failures: 3  # Number of consecutive failures before rollback
+    health_check_interval: 30  # Health check frequency in seconds
+    
+  # Rollback triggers
+  triggers:
+    # Application health triggers
+    application:
+      - name: "high_error_rate"
+        condition: "error_rate > 0.05"  # 5% error rate
+        severity: "critical"
+        rollback_delay: 60  # 1 minute delay before rollback
+        
+      - name: "service_unavailable"
+        condition: "service_status == 'down'"
+        severity: "critical"
+        rollback_delay: 30  # 30 seconds delay before rollback
+        
+      - name: "high_response_time"
+        condition: "p95_response_time > 2000"  # 2 seconds
+        severity: "warning"
+        rollback_delay: 120  # 2 minutes delay before rollback
+        
+    # Infrastructure triggers
+    infrastructure:
+      - name: "high_cpu_usage"
+        condition: "cpu_usage > 0.9"  # 90% CPU usage
+        severity: "warning"
+        rollback_delay: 180  # 3 minutes delay before rollback
+        
+      - name: "high_memory_usage"
+        condition: "memory_usage > 0.95"  # 95% memory usage
+        severity: "critical"
+        rollback_delay: 60  # 1 minute delay before rollback
+        
+      - name: "database_connection_issues"
+        condition: "db_connection_failures > 5"
+        severity: "critical"
+        rollback_delay: 30  # 30 seconds delay before rollback
+        
+    # Business metrics triggers
+    business:
+      - name: "conversion_rate_drop"
+        condition: "conversion_rate < 0.8 * baseline"
+        severity: "critical"
+        rollback_delay: 300  # 5 minutes delay before rollback
+        
+      - name: "user_activity_drop"
+        condition: "user_activity < 0.7 * baseline"
+        severity: "warning"
+        rollback_delay: 600  # 10 minutes delay before rollback
+
+  # Rollback strategies
+  strategies:
+    # Blue-green deployment rollback
+    blue_green:
+      enabled: true
+      switch_traffic: true
+      preserve_old_stack: true
+      rollback_timeout: 300  # 5 minutes timeout
+      
+    # Canary deployment rollback
+    canary:
+      enabled: true
+      traffic_shifting: true
+      gradual_rollback: true
+      rollback_steps: [25, 50, 75, 100]  # Traffic percentage steps
+      
+    # Rolling update rollback
+    rolling:
+      enabled: true
+      max_unavailable: 1
+      max_surge: 1
+      rollback_timeout: 600  # 10 minutes timeout
+
+  # Rollback actions
+  actions:
+    # Pre-rollback actions
+    pre_rollback:
+      - name: "notify_team"
+        type: "notification"
+        channels: ["slack", "email"]
+        message: "Rollback initiated for deployment {deployment_id}"
+        
+      - name: "capture_metrics"
+        type: "metrics_collection"
+        duration: 300  # 5 minutes of metrics
+        
+      - name: "create_incident"
+        type: "incident_management"
+        priority: "high"
+        
+    # Rollback execution
+    execution:
+      - name: "stop_new_deployment"
+        type: "deployment_control"
+        action: "stop"
+        
+      - name: "restore_previous_version"
+        type: "deployment_control"
+        action: "restore"
+        
+      - name: "verify_rollback"
+        type: "health_check"
+        timeout: 300  # 5 minutes timeout
+        
+    # Post-rollback actions
+    post_rollback:
+      - name: "notify_completion"
+        type: "notification"
+        channels: ["slack", "email"]
+        message: "Rollback completed for deployment {deployment_id}"
+        
+      - name: "update_deployment_status"
+        type: "status_update"
+        status: "rolled_back"
+        
+      - name: "create_post_mortem"
+        type: "documentation"
+        template: "rollback_post_mortem.md"
+
+  # Notification settings
+  notifications:
+    slack:
+      channels:
+        - "#deployments"
+        - "#alerts-urgent"
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      
+    email:
+      recipients:
+        - "team@autonomica.ai"
+        - "devops@autonomica.ai"
+      smtp_config:
+        host: "smtp.autonomica.ai"
+        port: 587
+        username: "${SMTP_USERNAME}"
+        password: "${SMTP_PASSWORD}"
+        
+    webhook:
+      endpoints:
+        - url: "${WEBHOOK_ENDPOINT}"
+          headers:
+            Authorization: "Bearer ${WEBHOOK_TOKEN}"
+
+  # Rollback history and logging
+  logging:
+    enabled: true
+    level: "info"
+    retention_days: 90
+    storage:
+      type: "file"
+      path: "/var/log/rollback"
+      
+  # Metrics and monitoring
+  metrics:
+    enabled: true
+    prometheus_endpoint: "http://prometheus:9090"
+    custom_metrics:
+      - name: "rollback_count"
+        type: "counter"
+        description: "Total number of rollbacks"
+        
+      - name: "rollback_duration"
+        type: "histogram"
+        description: "Time taken for rollbacks"
+        
+      - name: "rollback_success_rate"
+        type: "gauge"
+        description: "Success rate of rollbacks"
+        
+      - name: "deployment_failure_rate"
+        type: "gauge"
+        description: "Rate of deployment failures"
+
+  # Rollback testing and validation
+  testing:
+    enabled: true
+    dry_run: false
+    test_scenarios:
+      - name: "high_error_rate_simulation"
+        description: "Simulate high error rate to test rollback"
+        trigger_condition: "error_rate > 0.05"
+        
+      - name: "service_unavailable_simulation"
+        description: "Simulate service unavailability to test rollback"
+        trigger_condition: "service_status == 'down'"
+        
+      - name: "performance_degradation_simulation"
+        description: "Simulate performance degradation to test rollback"
+        trigger_condition: "response_time > 5000"
