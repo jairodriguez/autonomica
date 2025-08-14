@@ -678,10 +678,16 @@ class WebScraper:
                 if href and not href.startswith('#'):
                     # Convert relative URLs to absolute
                     absolute_url = urljoin(self.page.url, href)
+                    
+                    # Compare domains to determine if link is external
+                    current_domain = urlparse(self.page.url).netloc
+                    link_domain = urlparse(absolute_url).netloc
+                    is_external = current_domain != link_domain
+                    
                     links.append({
                         "url": absolute_url,
                         "text": text.strip() if text else "",
-                        "external": not absolute_url.startswith(self.page.url)
+                        "external": is_external
                     })
             
         except Exception as e:
