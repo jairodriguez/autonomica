@@ -1,0 +1,43 @@
+global:
+  smtp_smarthost: 'smtp.autonomica.ai:587'
+  smtp_from: 'alerts@autonomica.ai'
+  smtp_auth_username: 'alerts@autonomica.ai'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'team-autonomica'
+
+  routes:
+    - match:
+        severity: critical
+      receiver: 'team-autonomica-urgent'
+      repeat_interval: 1h
+
+receivers:
+  - name: 'team-autonomica'
+    email_configs:
+      - to: 'team@autonomica.ai'
+        send_resolved: true
+
+    slack_configs:
+      - api_url: '${WEBHOOK_SLACK_URL}'
+        channel: '#alerts'
+        send_resolved: true
+
+  - name: 'team-autonomica-urgent'
+    email_configs:
+      - to: 'urgent@autonomica.ai'
+        send_resolved: true
+
+    slack_configs:
+      - api_url: '${WEBHOOK_SLACK_URL}'
+        channel: '#alerts-urgent'
+        send_resolved: true
+
+    webhook_configs:
+      - url: '${WEBHOOK_SLACK_URL}'
+        send_resolved: true
