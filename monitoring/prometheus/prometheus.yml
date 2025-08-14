@@ -1,0 +1,51 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Autonomica API
+  - job_name: 'autonomica-api'
+    static_configs:
+      - targets: ['autonomica-api:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Autonomica Worker
+  - job_name: 'autonomica-worker'
+    static_configs:
+      - targets: ['autonomica-worker:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Frontend (if it exposes metrics)
+  - job_name: 'autonomica-frontend'
+    static_configs:
+      - targets: ['autonomica-frontend:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Docker containers
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
