@@ -1,0 +1,104 @@
+# Testing Framework
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+pytest-mock>=3.12.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.1
+pytest-rerunfailures>=12.0
+pytest-html>=3.2.0
+pytest-benchmark>=4.0.0
+pytest-sugar>=0.9.7
+pytest-randomly>=3.15.0
+
+# Code Quality & Linting
+black>=23.11.0
+isort>=5.12.0
+flake8>=6.1.0
+flake8-bugbear>=23.3.12
+flake8-comprehensions>=1.0.0
+flake8-docstrings>=1.7.0
+flake8-import-order>=0.18.2
+flake8-quotes>=3.4.0
+flake8-annotations>=2.7.0
+flake8-print>=5.0.0
+flake8-return>=1.2.0
+flake8-simplify>=0.20.0
+flake8-unused-arguments>=0.0.13
+flake8-variables-names>=0.0.5
+
+# Type Checking
+mypy>=1.7.0
+types-requests>=2.31.0
+types-PyYAML>=6.0.12
+types-redis>=4.6.0
+types-python-dateutil>=2.8.19
+
+# Security & Vulnerability Scanning
+bandit>=1.7.5
+safety>=2.3.5
+pip-audit>=2.6.1
+semgrep>=1.50.0
+
+# Code Coverage
+coverage>=7.3.2
+codecov>=2.1.13
+
+# Documentation
+sphinx>=7.2.6
+sphinx-rtd-theme>=1.3.0
+myst-parser>=2.0.0
+sphinx-autodoc-typehints>=1.25.0
+
+# Development Tools
+pre-commit>=3.5.0
+ipython>=8.17.0
+ipdb>=0.13.13
+rich>=13.7.0
+click>=8.1.7
+invoke>=2.2.0
+
+# Performance & Profiling
+py-spy>=0.3.14
+memory-profiler>=0.61.0
+line-profiler>=4.1.2
+
+# Code Metrics
+radon>=6.0.1
+mccabe>=0.7.0
+xenon>=0.8.0
+
+# Import Sorting & Organization
+isort[pyproject]>=5.12.0
+reorder-python-imports>=3.12.0
+
+# Code Formatting
+black[jupyter]>=23.11.0
+yapf>=0.40.0
+
+# Dependency Management
+pip-tools>=7.3.0
+pipdeptree>=2.13.2
+
+# Environment Management
+python-dotenv>=1.0.0
+dynaconf>=3.2.4
+
+# Database Tools
+alembic>=1.12.1
+sqlacodegen>=3.0.0
+
+# API Documentation
+apispec>=6.3.0
+marshmallow>=3.20.1
+
+# Monitoring & Logging
+structlog>=23.2.0
+loguru>=0.7.2
+
+# Performance Testing
+locust>=2.17.0
+pytest-benchmark>=4.0.0
+
+# Code Generation
+cookiecutter>=2.6.0
+copier>=8.4.0

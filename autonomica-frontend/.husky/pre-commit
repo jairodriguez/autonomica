@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run ESLint on staged files
+echo "  📝 Checking code style with ESLint..."
+npx lint-staged --config .lintstagedrc.js
+
+# Run TypeScript type checking
+echo "  🔍 Running TypeScript type check..."
+npm run lint:typescript
+
+# Run tests if there are test files staged
+if git diff --cached --name-only | grep -E '\.(test|spec)\.(js|jsx|ts|tsx)$' > /dev/null; then
+  echo "  🧪 Running tests for staged test files..."
+  npm run test:ci
+fi
+
+echo "✅ Pre-commit checks completed successfully!"
