@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Research Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab:hover {
+            background: #e9ecef;
+        }
+
+        .nav-tab.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        }
+
+        .results-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .result-item {
+            background: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .result-item h3 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .cluster-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .cluster-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .keyword-tag {
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            color: #495057;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 SEO Research Dashboard</h1>
+            <p>Comprehensive keyword research, SERP analysis, and SEO insights</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('keyword-research')">Keyword Research</button>
+            <button class="nav-tab" onclick="showTab('serp-analysis')">SERP Analysis</button>
+            <button class="nav-tab" onclick="showTab('keyword-clustering')">Keyword Clustering</button>
+            <button class="nav-tab" onclick="showTab('seo-analysis')">SEO Analysis</button>
+            <button class="nav-tab" onclick="showTab('batch-analysis')">Batch Analysis</button>
+            <button class="nav-tab" onclick="showTab('cache-stats')">Cache Stats</button>
+        </div>
+
+        <!-- Keyword Research Tab -->
+        <div id="keyword-research" class="tab-content active">
+            <h2>Keyword Research</h2>
+            <form id="keyword-research-form">
+                <div class="form-group">
+                    <label for="keywords">Keywords (one per line):</label>
+                    <textarea id="keywords" class="form-control" rows="5" placeholder="Enter keywords here...&#10;seo tools&#10;keyword research&#10;backlink analysis"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="country">Country:</label>
+                    <select id="country" class="form-control">
+                        <option value="us">United States</option>
+                        <option value="uk">United Kingdom</option>
+                        <option value="ca">Canada</option>
+                        <option value="au">Australia</option>
+                        <option value="de">Germany</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Research Keywords</button>
+            </form>
+            <div id="keyword-results" class="results-container" style="display: none;"></div>
+        </div>
+
+        <!-- SERP Analysis Tab -->
+        <div id="serp-analysis" class="tab-content">
+            <h2>SERP Analysis</h2>
+            <form id="serp-analysis-form">
+                <div class="form-group">
+                    <label for="serp-keyword">Keyword:</label>
+                    <input type="text" id="serp-keyword" class="form-control" placeholder="Enter keyword to analyze SERP">
+                </div>
+                <div class="form-group">
+                    <label for="serp-country">Country:</label>
+                    <select id="serp-country" class="form-control">
+                        <option value="us">United States</option>
+                        <option value="uk">United Kingdom</option>
+                        <option value="ca">Canada</option>
+                        <option value="au">Australia</option>
+                        <option value="de">Germany</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="include-competitors" checked> Include competitor analysis
+                    </label>
+                </div>
+                <button type="submit" class="btn">Analyze SERP</button>
+            </form>
+            <div id="serp-results" class="results-container" style="display: none;"></div>
+        </div>
+
+        <!-- Keyword Clustering Tab -->
+        <div id="keyword-clustering" class="tab-content">
+            <h2>Keyword Clustering</h2>
+            <form id="clustering-form">
+                <div class="form-group">
+                    <label for="clustering-keywords">Keywords (one per line):</label>
+                    <textarea id="clustering-keywords" class="form-control" rows="5" placeholder="Enter keywords to cluster...&#10;seo tools&#10;keyword research&#10;backlink analysis&#10;on page seo&#10;technical seo"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="algorithm">Clustering Algorithm:</label>
+                    <select id="algorithm" class="form-control">
+                        <option value="kmeans">K-Means</option>
+                        <option value="agglomerative">Agglomerative</option>
+                        <option value="dbscan">DBSCAN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="n-clusters">Number of Clusters (leave empty for auto):</label>
+                    <input type="number" id="n-clusters" class="form-control" placeholder="Auto-determined">
+                </div>
+                <button type="submit" class="btn">Cluster Keywords</button>
+            </form>
+            <div id="clustering-results" class="results-container" style="display: none;"></div>
+        </div>
+
+        <!-- SEO Analysis Tab -->
+        <div id="seo-analysis" class="tab-content">
+            <h2>SEO Analysis</h2>
+            <form id="seo-analysis-form">
+                <div class="form-group">
+                    <label for="url">URL to Analyze:</label>
+                    <input type="url" id="url" class="form-control" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label for="target-keywords">Target Keywords (optional):</label>
+                    <input type="text" id="target-keywords" class="form-control" placeholder="keyword1, keyword2, keyword3">
+                </div>
+                <button type="submit" class="btn">Analyze SEO</button>
+            </form>
+            <div id="seo-results" class="results-container" style="display: none;"></div>
+        </div>
+
+        <!-- Batch Analysis Tab -->
+        <div id="batch-analysis" class="tab-content">
+            <h2>Batch Analysis</h2>
+            <form id="batch-analysis-form">
+                <div class="form-group">
+                    <label for="batch-keywords">Keywords (one per line):</label>
+                    <textarea id="batch-keywords" class="form-control" rows="5" placeholder="Enter keywords for batch analysis..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="batch-countries">Countries:</label>
+                    <select id="batch-countries" class="form-control" multiple>
+                        <option value="us" selected>United States</option>
+                        <option value="uk">United Kingdom</option>
+                        <option value="ca">Canada</option>
+                        <option value="au">Australia</option>
+                        <option value="de">Germany</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Analysis Types:</label>
+                    <div>
+                        <label><input type="checkbox" value="keyword" checked> Keyword Research</label>
+                        <label><input type="checkbox" value="serp" checked> SERP Analysis</label>
+                        <label><input type="checkbox" value="clustering" checked> Keyword Clustering</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn">Start Batch Analysis</button>
+            </form>
+            <div id="batch-results" class="results-container" style="display: none;"></div>
+        </div>
+
+        <!-- Cache Stats Tab -->
+        <div id="cache-stats" class="tab-content">
+            <h2>Cache Performance</h2>
+            <div class="form-group">
+                <button onclick="loadCacheStats()" class="btn">Refresh Cache Stats</button>
+                <button onclick="optimizeCache()" class="btn btn-success">Optimize Cache</button>
+            </div>
+            <div id="cache-results" class="results-container" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const navTabs = document.querySelectorAll('.nav-tab');
+            navTabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        // API base URL
+        const API_BASE = '/api/v1/seo-research';
+
+        // Utility functions
+        function showLoading(containerId) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Processing your request...</p>
+                </div>
+            `;
+        }
+
+        function showError(containerId, message) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            container.innerHTML = `
+                <div class="alert alert-error">
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+        }
+
+        function showSuccess(containerId, message) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            container.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>Success:</strong> ${message}
+                </div>
+            `;
+        }
+
+        // Keyword Research
+        document.getElementById('keyword-research-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const keywords = document.getElementById('keywords').value.split('\n').filter(k => k.trim());
+            const country = document.getElementById('country').value;
+            
+            if (keywords.length === 0) {
+                showError('keyword-results', 'Please enter at least one keyword');
+                return;
+            }
+            
+            showLoading('keyword-results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/keyword-research`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token') // Assuming JWT token
+                    },
+                    body: JSON.stringify({
+                        keywords: keywords,
+                        country: country,
+                        language: 'en'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayKeywordResults(data);
+                
+            } catch (error) {
+                showError('keyword-results', error.message);
+            }
+        });
+
+        function displayKeywordResults(data) {
+            const container = document.getElementById('keyword-results');
+            container.style.display = 'block';
+            
+            let html = `
+                <h3>Research Results</h3>
+                <p>Analyzed ${data.keywords_researched} keywords for ${data.country}</p>
+            `;
+            
+            data.results.forEach(result => {
+                if (result.status === 'completed') {
+                    html += `
+                        <div class="result-item">
+                            <h3>${result.keyword}</h3>
+                            <div class="metrics-grid">
+                                <div class="metric-card">
+                                    <div class="metric-value">${result.keyword_data.search_volume || 'N/A'}</div>
+                                    <div class="metric-label">Search Volume</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${result.keyword_data.difficulty || 'N/A'}</div>
+                                    <div class="metric-label">Difficulty</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">$${result.keyword_data.cpc || 'N/A'}</div>
+                                    <div class="metric-label">CPC</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${result.opportunity_score.overall_score || 'N/A'}</div>
+                                    <div class="metric-label">Opportunity Score</div>
+                                </div>
+                            </div>
+                            <h4>SERP Features</h4>
+                            <ul>
+                                <li>Organic Results: ${result.serp_analysis.organic_results}</li>
+                                <li>Featured Snippet: ${result.serp_analysis.featured_snippet ? 'Yes' : 'No'}</li>
+                                <li>People Also Ask: ${result.serp_analysis.people_also_ask}</li>
+                                <li>Related Searches: ${result.serp_analysis.related_searches}</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="result-item">
+                            <h3>${result.keyword}</h3>
+                            <div class="alert alert-error">Failed: ${result.error}</div>
+                        </div>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // SERP Analysis
+        document.getElementById('serp-analysis-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const keyword = document.getElementById('serp-keyword').value.trim();
+            const country = document.getElementById('serp-country').value;
+            const includeCompetitors = document.getElementById('include-competitors').checked;
+            
+            if (!keyword) {
+                showError('serp-results', 'Please enter a keyword');
+                return;
+            }
+            
+            showLoading('serp-results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/serp-analysis`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({
+                        keyword: keyword,
+                        country: country,
+                        language: 'en',
+                        include_competitors: includeCompetitors
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displaySERPResults(data);
+                
+            } catch (error) {
+                showError('serp-results', error.message);
+            }
+        });
+
+        function displaySERPResults(data) {
+            const container = document.getElementById('serp-results');
+            container.style.display = 'block';
+            
+            let html = `
+                <h3>SERP Analysis for "${data.keyword}"</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">${data.total_organic_results}</div>
+                        <div class="metric-label">Organic Results</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.serp_features.featured_snippet.present ? 'Yes' : 'No'}</div>
+                        <div class="metric-label">Featured Snippet</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.serp_features.people_also_ask.count}</div>
+                        <div class="metric-label">People Also Ask</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.serp_features.related_searches.count}</div>
+                        <div class="metric-label">Related Searches</div>
+                    </div>
+                </div>
+            `;
+            
+            if (data.recommendations && data.recommendations.length > 0) {
+                html += '<h4>Recommendations</h4>';
+                data.recommendations.forEach(rec => {
+                    html += `
+                        <div class="result-item">
+                            <h5>${rec.type.replace('_', ' ').toUpperCase()}</h5>
+                            <p><strong>Priority:</strong> ${rec.priority}</p>
+                            <p>${rec.description}</p>
+                            <p><strong>Action:</strong> ${rec.action}</p>
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Keyword Clustering
+        document.getElementById('clustering-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const keywords = document.getElementById('clustering-keywords').value.split('\n').filter(k => k.trim());
+            const algorithm = document.getElementById('algorithm').value;
+            const nClusters = document.getElementById('n-clusters').value;
+            
+            if (keywords.length === 0) {
+                showError('clustering-results', 'Please enter keywords to cluster');
+                return;
+            }
+            
+            showLoading('clustering-results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/keyword-clustering`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({
+                        keywords: keywords,
+                        algorithm: algorithm,
+                        n_clusters: nClusters ? parseInt(nClusters) : null
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayClusteringResults(data);
+                
+            } catch (error) {
+                showError('clustering-results', error.message);
+            }
+        });
+
+        function displayClusteringResults(data) {
+            const container = document.getElementById('clustering-results');
+            container.style.display = 'block';
+            
+            let html = `
+                <h3>Clustering Results</h3>
+                <p>Algorithm: ${data.algorithm} | Total Clusters: ${data.total_clusters}</p>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">${data.quality_metrics.silhouette_score?.toFixed(3) || 'N/A'}</div>
+                        <div class="metric-label">Silhouette Score</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.quality_metrics.calinski_harabasz_score?.toFixed(0) || 'N/A'}</div>
+                        <div class="metric-label">Calinski-Harabasz</div>
+                    </div>
+                </div>
+            `;
+            
+            if (data.clusters && data.clusters.length > 0) {
+                html += '<h4>Clusters</h4>';
+                data.clusters.forEach((cluster, index) => {
+                    html += `
+                        <div class="cluster-item">
+                            <h5>Cluster ${index + 1} (${cluster.size} keywords)</h5>
+                            <p><strong>Intent:</strong> ${cluster.intent.primary_intent}</p>
+                            <div class="cluster-keywords">
+                                ${cluster.keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // SEO Analysis
+        document.getElementById('seo-analysis-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const url = document.getElementById('url').value.trim();
+            const targetKeywords = document.getElementById('target-keywords').value.split(',').map(k => k.trim()).filter(k => k);
+            
+            if (!url) {
+                showError('seo-results', 'Please enter a URL');
+                return;
+            }
+            
+            showLoading('seo-results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/seo-analysis`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        target_keywords: targetKeywords.length > 0 ? targetKeywords : null
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displaySEOResults(data);
+                
+            } catch (error) {
+                showError('seo-results', error.message);
+            }
+        });
+
+        function displaySEOResults(data) {
+            const container = document.getElementById('seo-results');
+            container.style.display = 'block';
+            
+            const gradeColor = data.grade === 'A' ? '#28a745' : data.grade === 'B' ? '#ffc107' : '#dc3545';
+            
+            let html = `
+                <h3>SEO Analysis for ${data.url}</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" style="color: ${gradeColor}">${data.overall_score}</div>
+                        <div class="metric-label">Overall Score</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" style="color: ${gradeColor}">${data.grade}</div>
+                        <div class="metric-label">Grade</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.detailed_scores.on_page}</div>
+                        <div class="metric-label">On-Page SEO</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.detailed_scores.technical}</div>
+                        <div class="metric-label">Technical SEO</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.detailed_scores.content}</div>
+                        <div class="metric-label">Content Quality</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.detailed_scores.mobile}</div>
+                        <div class="metric-label">Mobile Optimization</div>
+                    </div>
+                </div>
+            `;
+            
+            if (data.recommendations && data.recommendations.length > 0) {
+                html += '<h4>Recommendations</h4>';
+                data.recommendations.forEach(rec => {
+                    html += `
+                        <div class="result-item">
+                            <h5>${rec.category.toUpperCase()}</h5>
+                            <p><strong>Priority:</strong> ${rec.priority}</p>
+                            <p>${rec.description}</p>
+                            <ul>
+                                ${rec.actions.map(action => `<li>${action}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Batch Analysis
+        document.getElementById('batch-analysis-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const keywords = document.getElementById('batch-keywords').value.split('\n').filter(k => k.trim());
+            const countries = Array.from(document.getElementById('batch-countries').selectedOptions).map(opt => opt.value);
+            const analysisTypes = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            
+            if (keywords.length === 0) {
+                showError('batch-results', 'Please enter keywords for batch analysis');
+                return;
+            }
+            
+            if (countries.length === 0) {
+                showError('batch-results', 'Please select at least one country');
+                return;
+            }
+            
+            if (analysisTypes.length === 0) {
+                showError('batch-results', 'Please select at least one analysis type');
+                return;
+            }
+            
+            showLoading('batch-results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/batch-analysis`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({
+                        keywords: keywords,
+                        countries: countries,
+                        analysis_types: analysisTypes
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayBatchResults(data);
+                
+            } catch (error) {
+                showError('batch-results', error.message);
+            }
+        });
+
+        function displayBatchResults(data) {
+            const container = document.getElementById('batch-results');
+            container.style.display = 'block';
+            
+            const container.innerHTML = `
+                <h3>Batch Analysis Started</h3>
+                <div class="result-item">
+                    <h4>Job Details</h4>
+                    <p><strong>Job ID:</strong> ${data.job_id}</p>
+                    <p><strong>Status:</strong> ${data.status}</p>
+                    <p><strong>Keywords:</strong> ${data.keywords_count}</p>
+                    <p><strong>Countries:</strong> ${data.countries.join(', ')}</p>
+                    <p><strong>Analysis Types:</strong> ${data.analysis_types.join(', ')}</p>
+                    <p><strong>Estimated Completion:</strong> ${new Date(data.estimated_completion).toLocaleString()}</p>
+                </div>
+                <p>Use the job ID to check status: ${data.job_id}</p>
+            `;
+        }
+
+        // Cache Stats
+        async function loadCacheStats() {
+            showLoading('cache-results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/cache-stats`, {
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayCacheStats(data);
+                
+            } catch (error) {
+                showError('cache-results', error.message);
+            }
+        }
+
+        function displayCacheStats(data) {
+            const container = document.getElementById('cache-results');
+            container.style.display = 'block';
+            
+            const container.innerHTML = `
+                <h3>Cache Performance Statistics</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">${data.statistics.total_entries}</div>
+                        <div class="metric-label">Total Entries</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.statistics.total_size_mb} MB</div>
+                        <div class="metric-label">Total Size</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.statistics.hit_rate}%</div>
+                        <div class="metric-label">Hit Rate</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.statistics.miss_rate}%</div>
+                        <div class="metric-label">Miss Rate</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.statistics.eviction_count}</div>
+                        <div class="metric-label">Evictions</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${data.statistics.average_access_time}ms</div>
+                        <div class="metric-label">Avg Access Time</div>
+                    </div>
+                </div>
+                <div class="result-item">
+                    <h4>Cache Health</h4>
+                    <p><strong>Status:</strong> <span style="color: ${data.health.status === 'healthy' ? '#28a745' : '#dc3545'}">${data.health.status}</span></p>
+                    <p><strong>Redis Connected:</strong> ${data.health.redis_connected ? 'Yes' : 'No'}</p>
+                    ${data.health.issues && data.health.issues.length > 0 ? `
+                        <h5>Issues:</h5>
+                        <ul>${data.health.issues.map(issue => `<li>${issue}</li>`).join('')}</ul>
+                    ` : ''}
+                    ${data.health.recommendations && data.health.recommendations.length > 0 ? `
+                        <h5>Recommendations:</h5>
+                        <ul>${data.health.recommendations.map(rec => `<li>${rec}</li>`).join('')}</ul>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        async function optimizeCache() {
+            try {
+                const response = await fetch(`${API_BASE}/cache-optimize`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                showSuccess('cache-results', 'Cache optimization completed successfully!');
+                
+                // Reload cache stats
+                setTimeout(loadCacheStats, 1000);
+                
+            } catch (error) {
+                showError('cache-results', 'Cache optimization failed: ' + error.message);
+            }
+        }
+
+        // Load cache stats on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize with some sample data or load cache stats
+            console.log('SEO Research Dashboard loaded');
+        });
+    </script>
+</body>
+</html>
