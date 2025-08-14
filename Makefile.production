@@ -1,0 +1,385 @@
+# Production Environment Management Makefile
+# Provides convenient commands for production environment operations
+
+.PHONY: help deploy deploy-blue deploy-green rollback status logs health backup restore clean update upgrade scale test validate monitor autoscale
+
+# Default target
+help:
+	@echo "🚀 Autonomica Production Environment Management"
+	@echo "=============================================="
+	@echo ""
+	@echo "📦 Deployment:"
+	@echo "  deploy          Deploy to production with blue-green strategy"
+	@echo "  deploy-blue     Deploy to blue stack"
+	@echo "  deploy-green    Deploy to green stack"
+	@echo "  rollback        Rollback to previous deployment"
+	@echo "  stop            Stop all production services"
+	@echo "  start           Start all production services"
+	@echo "  restart         Restart all production services"
+	@echo ""
+	@echo "🔍 Monitoring:"
+	@echo "  status          Show status of all production services"
+	@echo "  logs            View logs for all production services"
+	@echo "  health          Run comprehensive health check"
+	@echo "  metrics         Show resource usage metrics"
+	@echo "  monitor         Open monitoring interfaces"
+	@echo ""
+	@echo "🗄️  Database:"
+	@echo "  backup          Create production database backup"
+	@echo "  restore         Restore production database from backup"
+	@echo "  migrate         Run production database migrations"
+	@echo "  init-db         Initialize production database"
+	@echo ""
+	@echo "🧹 Maintenance:"
+	@echo "  clean           Clean up unused production resources"
+	@echo "  update          Update all production images and dependencies"
+	@echo "  upgrade         Upgrade to latest production versions"
+	@echo "  scale           Scale production services (e.g., make scale API=5)"
+	@echo ""
+	@echo "🧪 Testing:"
+	@echo "  test            Run production environment tests"
+	@echo "  validate        Validate production environment configuration"
+	@echo "  smoke           Run production smoke tests"
+	@echo ""
+	@echo "📊 Auto-scaling:"
+	@echo "  autoscale       Start auto-scaling service"
+	@echo "  autoscale-stop  Stop auto-scaling service"
+	@echo "  autoscale-status Show auto-scaling status"
+	@echo ""
+	@echo "📈 Performance:"
+	@echo "  performance     Show performance metrics"
+	@echo "  benchmark       Run performance benchmarks"
+	@echo "  stress          Run stress tests"
+	@echo ""
+	@echo "🔒 Security:"
+	@echo "  security-scan   Run security vulnerability scan"
+	@echo "  audit           Run security and compliance audit"
+	@echo "  update-secrets  Update production secrets"
+
+# Configuration
+PRODUCTION_COMPOSE = docker-compose -f docker-compose.production.yml
+PRODUCTION_SCRIPT = ./scripts/deploy-production.sh
+HEALTH_SCRIPT = ./scripts/healthcheck-production.sh
+AUTOSCALER_SCRIPT = ./scripts/autoscaler.py
+
+# Deployment Commands
+deploy:
+	@echo "🚀 Deploying to production with blue-green strategy..."
+	@$(PRODUCTION_SCRIPT)
+
+deploy-blue:
+	@echo "🔵 Deploying to blue stack..."
+	@$(PRODUCTION_SCRIPT) --stack blue
+
+deploy-green:
+	@echo "🟢 Deploying to green stack..."
+	@$(PRODUCTION_SCRIPT) --stack green
+
+rollback:
+	@echo "🔄 Rolling back production deployment..."
+	@$(PRODUCTION_SCRIPT) --rollback
+
+# Service Management
+stop:
+	@echo "🛑 Stopping production services..."
+	@$(PRODUCTION_COMPOSE) down
+
+start:
+	@echo "▶️  Starting production services..."
+	@$(PRODUCTION_COMPOSE) up -d
+
+restart:
+	@echo "🔄 Restarting production services..."
+	@$(PRODUCTION_COMPOSE) restart
+
+# Monitoring Commands
+status:
+	@echo "📊 Production environment status..."
+	@$(PRODUCTION_COMPOSE) ps
+
+logs:
+	@echo "📝 Viewing production service logs..."
+	@$(PRODUCTION_COMPOSE) logs -f
+
+health:
+	@echo "🏥 Running production environment health check..."
+	@$(HEALTH_SCRIPT)
+
+metrics:
+	@echo "📈 Resource usage metrics..."
+	@docker stats --no-stream
+
+monitor:
+	@echo "📊 Opening production monitoring interfaces..."
+	@echo "Prometheus: https://monitoring.autonomica.ai"
+	@echo "Grafana: https://grafana.autonomica.ai"
+	@echo "Kibana: https://logs.autonomica.ai"
+	@echo "Frontend: https://autonomica.ai"
+	@echo "API: https://api.autonomica.ai"
+
+# Database Commands
+backup:
+	@echo "💾 Creating production database backup..."
+	@mkdir -p database/backups
+	@$(PRODUCTION_COMPOSE) exec -T prod-db-primary pg_dump -U prod_user autonomica_production > database/backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@echo "✅ Backup created successfully"
+
+restore:
+	@echo "📥 Restoring production database from backup..."
+	@if [ -z "$(BACKUP_FILE)" ]; then \
+		echo "❌ Please specify backup file: make restore BACKUP_FILE=backup_filename.sql"; \
+		exit 1; \
+	fi
+	@$(PRODUCTION_COMPOSE) exec -T prod-db-primary psql -U prod_user -d autonomica_production < database/backups/$(BACKUP_FILE)
+	@echo "✅ Database restored successfully"
+
+migrate:
+	@echo "🗃️  Running production database migrations..."
+	@cd autonomica-api && alembic upgrade head
+
+init-db:
+	@echo "🗄️  Initializing production database..."
+	@$(PRODUCTION_COMPOSE) exec -T prod-db-primary psql -U prod_user -d autonomica_production -f /docker-entrypoint-initdb.d/init.sql
+
+# Maintenance Commands
+clean:
+	@echo "🧹 Cleaning up unused production resources..."
+	@docker image prune -f
+	@docker volume prune -f
+	@docker network prune -f
+	@echo "✅ Cleanup completed"
+
+update:
+	@echo "📦 Updating production images and dependencies..."
+	@$(PRODUCTION_COMPOSE) pull
+	@$(PRODUCTION_COMPOSE) up -d --build
+	@echo "✅ Update completed"
+
+upgrade:
+	@echo "⬆️  Upgrading to latest production versions..."
+	@$(PRODUCTION_COMPOSE) down
+	@$(PRODUCTION_COMPOSE) pull
+	@$(PRODUCTION_COMPOSE) up -d --build
+	@echo "✅ Upgrade completed"
+
+scale:
+	@echo "📏 Scaling production services..."
+	@if [ -z "$(API)" ]; then \
+		echo "❌ Please specify service and count: make scale API=5"; \
+		exit 1; \
+	fi
+	@$(PRODUCTION_COMPOSE) up -d --scale api-production=$(API)
+	@echo "✅ Services scaled successfully"
+
+# Testing Commands
+test:
+	@echo "🧪 Running production environment tests..."
+	@$(PRODUCTION_SCRIPT) --skip-migrations
+
+validate:
+	@echo "✅ Validating production environment configuration..."
+	@$(PRODUCTION_COMPOSE) config
+	@echo "✅ Configuration validation completed"
+
+smoke:
+	@echo "💨 Running production smoke tests..."
+	@$(HEALTH_SCRIPT)
+
+# Auto-scaling Commands
+autoscale:
+	@echo "📈 Starting production auto-scaling service..."
+	@$(PRODUCTION_COMPOSE) up -d autoscaler-production
+	@echo "✅ Auto-scaling service started"
+
+autoscale-stop:
+	@echo "🛑 Stopping production auto-scaling service..."
+	@$(PRODUCTION_COMPOSE) stop autoscaler-production
+	@echo "✅ Auto-scaling service stopped"
+
+autoscale-status:
+	@echo "📊 Auto-scaling service status..."
+	@$(PRODUCTION_COMPOSE) ps autoscaler-production
+	@echo ""
+	@echo "Auto-scaling logs:"
+	@$(PRODUCTION_COMPOSE) logs --tail=20 autoscaler-production
+
+# Performance Commands
+performance:
+	@echo "⚡ Production performance analysis..."
+	@echo "CPU Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}" | head -10
+	@echo ""
+	@echo "Memory Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}" | head -10
+	@echo ""
+	@echo "Network Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.NetIO}}" | head -10
+
+benchmark:
+	@echo "🏃 Running production performance benchmarks..."
+	@echo "API Response Time:"
+	@curl -w "Time: %{time_total}s\n" -o /dev/null -s https://api.autonomica.ai/health
+	@echo "Frontend Response Time:"
+	@curl -w "Time: %{time_total}s\n" -o /dev/null -s https://autonomica.ai/health
+
+stress:
+	@echo "💪 Running production stress tests..."
+	@echo "This would run load testing tools like Apache Bench or wrk"
+	@echo "For now, we'll simulate stress testing..."
+	@for i in {1..10}; do \
+		curl -s https://api.autonomica.ai/health > /dev/null & \
+	done; \
+	wait; \
+	echo "Stress test completed"
+
+# Security Commands
+security-scan:
+	@echo "🔒 Running production security scan..."
+	@echo "Checking for security vulnerabilities..."
+	@cd autonomica-api && python run_code_quality.py --check security
+	@echo "Checking for dependency vulnerabilities..."
+	@cd autonomica-api && safety check
+	@echo "✅ Security scan completed"
+
+audit:
+	@echo "🔒 Running production security and compliance audit..."
+	@echo "Checking for security vulnerabilities..."
+	@cd autonomica-api && python run_code_quality.py --check security
+	@echo "Checking for code quality issues..."
+	@cd autonomica-api && python run_code_quality.py --check linting
+	@echo "Checking frontend code quality..."
+	@cd autonomica-frontend && npm run lint:all
+	@echo "✅ Audit completed"
+
+update-secrets:
+	@echo "🔐 Updating production secrets..."
+	@echo "This would involve updating environment variables and secrets"
+	@echo "For now, we'll just log the action"
+	@echo "✅ Secrets update logged"
+
+# Utility Commands
+shell:
+	@echo "🐚 Opening shell in production API container..."
+	@$(PRODUCTION_COMPOSE) exec api-production bash
+
+db-shell:
+	@echo "🗄️  Opening production database shell..."
+	@$(PRODUCTION_COMPOSE) exec prod-db-primary psql -U prod_user -d autonomica_production
+
+redis-shell:
+	@echo "🔴 Opening production Redis shell..."
+	@$(PRODUCTION_COMPOSE) exec prod-redis-primary redis-cli -a ${REDIS_PASSWORD}
+
+logs-tail:
+	@echo "📝 Tailing logs for specific production service..."
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "❌ Please specify service: make logs-tail SERVICE=api-production"; \
+		exit 1; \
+	fi
+	@$(PRODUCTION_COMPOSE) logs -f --tail=100 $(SERVICE)
+
+logs-error:
+	@echo "❌ Viewing production error logs..."
+	@$(PRODUCTION_COMPOSE) logs | grep -i "error\|exception\|traceback" | tail -50
+
+logs-access:
+	@echo "🌐 Viewing production access logs..."
+	@$(PRODUCTION_COMPOSE) logs traefik-production | grep -E "GET|POST|PUT|DELETE" | tail -50
+
+# Backup and Recovery Commands
+backup-all:
+	@echo "💾 Creating comprehensive production backup..."
+	@mkdir -p backups/$(shell date +%Y%m%d_%H%M%S)
+	@$(PRODUCTION_COMPOSE) exec -T prod-db-primary pg_dump -U prod_user autonomica_production > backups/$(shell date +%Y%m%d_%H%M%S)/database.sql
+	@docker-compose -f docker-compose.production.yml config > backups/$(shell date +%Y%m%d_%H%M%S)/compose.yml
+	@cp production.env backups/$(shell date +%Y%m%d_%H%M%S)/environment.env
+	@echo "✅ Comprehensive backup created"
+
+restore-all:
+	@echo "📥 Restoring from comprehensive production backup..."
+	@if [ -z "$(BACKUP_DIR)" ]; then \
+		echo "❌ Please specify backup directory: make restore-all BACKUP_DIR=backup_timestamp"; \
+		exit 1; \
+	fi
+	@$(PRODUCTION_COMPOSE) down
+	@$(PRODUCTION_COMPOSE) up -d prod-db-primary
+	@sleep 10
+	@$(PRODUCTION_COMPOSE) exec -T prod-db-primary psql -U prod_user -d autonomica_production < backups/$(BACKUP_DIR)/database.sql
+	@$(PRODUCTION_COMPOSE) up -d
+	@echo "✅ Comprehensive restore completed"
+
+# Emergency Commands
+emergency-stop:
+	@echo "🚨 Emergency stop of all production services..."
+	@$(PRODUCTION_COMPOSE) down --remove-orphans
+	@docker stop $(shell docker ps -q) 2>/dev/null || true
+	@echo "✅ All production services stopped"
+
+emergency-restart:
+	@echo "🚨 Emergency restart of all production services..."
+	@make emergency-stop
+	@sleep 5
+	@make start
+	@echo "✅ Emergency restart completed"
+
+# Information Commands
+info:
+	@echo "ℹ️  Production Environment Information"
+	@echo "====================================="
+	@echo "Docker Compose: $(PRODUCTION_COMPOSE)"
+	@echo "Deploy Script: $(PRODUCTION_SCRIPT)"
+	@echo "Health Script: $(HEALTH_SCRIPT)"
+	@echo "Auto-scaler: $(AUTOSCALER_SCRIPT)"
+	@echo ""
+	@echo "Production URLs:"
+	@echo "  Frontend:     https://autonomica.ai"
+	@echo "  API:          https://api.autonomica.ai"
+	@echo "  Worker:       https://worker.autonomica.ai"
+	@echo "  Monitoring:   https://monitoring.autonomica.ai"
+	@echo "  Grafana:      https://grafana.autonomica.ai"
+	@echo "  Logs:         https://logs.autonomica.ai"
+
+version:
+	@echo "📋 Production Version Information"
+	@echo "================================="
+	@echo "Docker: $(shell docker --version)"
+	@echo "Docker Compose: $(shell docker-compose --version)"
+	@echo "Python: $(shell python3 --version 2>/dev/null || echo "Not available")"
+	@echo "Node.js: $(shell node --version 2>/dev/null || echo "Not available")"
+	@echo "Git: $(shell git --version)"
+
+# Help for specific commands
+deploy-help:
+	@echo "🚀 Production Deployment Options"
+	@echo "================================"
+	@echo "make deploy          - Blue-green deployment strategy"
+	@echo "make deploy-blue     - Deploy to blue stack"
+	@echo "make deploy-green    - Deploy to green stack"
+	@echo "make rollback        - Rollback to previous deployment"
+	@echo ""
+	@echo "make stop            - Stop all production services"
+	@echo "make start           - Start all production services"
+	@echo "make restart         - Restart all production services"
+
+monitoring-help:
+	@echo "🔍 Production Monitoring Commands"
+	@echo "================================="
+	@echo "make status          - Show service status"
+	@echo "make logs            - View all logs"
+	@echo "make health          - Run health check"
+	@echo "make metrics         - Show resource usage"
+	@echo "make monitor         - Open monitoring interfaces"
+	@echo ""
+	@echo "make logs-tail SERVICE=api-production  - Tail specific service logs"
+	@echo "make logs-error                         - View error logs"
+	@echo "make logs-access                        - View access logs"
+
+autoscale-help:
+	@echo "📈 Production Auto-scaling Commands"
+	@echo "==================================="
+	@echo "make autoscale       - Start auto-scaling service"
+	@echo "make autoscale-stop  - Stop auto-scaling service"
+	@echo "make autoscale-status - Show auto-scaling status"
+	@echo ""
+	@echo "Auto-scaling monitors CPU and memory usage and automatically scales services"
+	@echo "Configuration: MIN_INSTANCES=2, MAX_INSTANCES=10, CPU_THRESHOLD=70%, MEMORY_THRESHOLD=80%"

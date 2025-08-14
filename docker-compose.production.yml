@@ -1,0 +1,564 @@
+version: '3.8'
+
+services:
+  # Frontend Application (Multiple Instances)
+  frontend-production:
+    build:
+      context: ./autonomica-frontend
+      dockerfile: Dockerfile.production
+      target: production
+    container_name: autonomica-frontend-production
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.autonomica.ai
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+    env_file:
+      - production.env
+    depends_on:
+      - api-production
+    networks:
+      - autonomica-production
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-production.rule=Host(`autonomica.ai`) || Host(`www.autonomica.ai`)"
+      - "traefik.http.routers.frontend-production.tls=true"
+      - "traefik.http.routers.frontend-production.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-production.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.frontend-production-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.frontend-production-http.rule=Host(`autonomica.ai`) || Host(`www.autonomica.ai`)"
+      - "traefik.http.routers.frontend-production-http.middlewares=frontend-production-https-redirect"
+      - "traefik.http.routers.frontend-production-http.entrypoints=web"
+
+  # Backend API (Multiple Instances)
+  api-production:
+    build:
+      context: ./autonomica-api
+      dockerfile: Dockerfile.production
+      target: production
+    container_name: autonomica-api-production
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://prod_user:${DATABASE_PASSWORD}@prod-db:5432/autonomica_production
+      - REDIS_URL=redis://prod-redis:6379/0
+    env_file:
+      - production.env
+    depends_on:
+      - prod-db
+      - prod-redis
+    networks:
+      - autonomica-production
+    deploy:
+      replicas: 5
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: start-first
+      rollback_config:
+        parallelism: 2
+        delay: 5s
+        order: stop-first
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-production.rule=Host(`api.autonomica.ai`)"
+      - "traefik.http.routers.api-production.tls=true"
+      - "traefik.http.routers.api-production.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api-production.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.api-production-rate-limit.ratelimit.average=1000"
+      - "traefik.http.middlewares.api-production-rate-limit.ratelimit.burst=2000"
+      - "traefik.http.routers.api-production.middlewares=api-production-rate-limit"
+
+  # Worker Pod (Multiple Instances)
+  worker-production:
+    build:
+      context: ./autonomica-worker
+      dockerfile: Dockerfile.production
+      target: production
+    container_name: autonomica-worker-production
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://prod_user:${DATABASE_PASSWORD}@prod-db:5432/autonomica_production
+      - REDIS_URL=redis://prod-redis:6379/0
+    env_file:
+      - production.env
+    depends_on:
+      - prod-db
+      - prod-redis
+    networks:
+      - autonomica-production
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+        reservations:
+          cpus: '0.75'
+          memory: 768M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.worker-production.rule=Host(`worker.autonomica.ai`)"
+      - "traefik.http.routers.worker-production.tls=true"
+      - "traefik.http.routers.worker-production.tls.certresolver=letsencrypt"
+      - "traefik.http.services.worker-production.loadbalancer.server.port=8001"
+
+  # PostgreSQL Database (Primary)
+  prod-db-primary:
+    image: postgres:15-alpine
+    container_name: autonomica-prod-db-primary
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=autonomica_production
+      - POSTGRES_USER=prod_user
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+      - POSTGRES_MULTIPLE_DATABASES=autonomica_production,autonomica_analytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - prod-postgres-primary-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+      - ./database/backups:/backups
+      - ./database/postgresql.conf:/etc/postgresql/postgresql.conf
+    networks:
+      - autonomica-production
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prod_user -d autonomica_production"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+
+  # PostgreSQL Database (Replica)
+  prod-db-replica:
+    image: postgres:15-alpine
+    container_name: autonomica-prod-db-replica
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=autonomica_production
+      - POSTGRES_USER=prod_user
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_MASTER_HOST=prod-db-primary
+      - POSTGRES_MASTER_PORT=5432
+      - POSTGRES_MASTER_USER=prod_user
+      - POSTGRES_MASTER_PASSWORD=${DATABASE_PASSWORD}
+    volumes:
+      - prod-postgres-replica-data:/var/lib/postgresql/data
+      - ./database/replica-init.sh:/docker-entrypoint-initdb.d/replica-init.sh
+    networks:
+      - autonomica-production
+    depends_on:
+      - prod-db-primary
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prod_user -d autonomica_production"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Redis Cache (Primary)
+  prod-redis-primary:
+    image: redis:7-alpine
+    container_name: autonomica-prod-redis-primary
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - prod-redis-primary-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - autonomica-production
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '1.0'
+          memory: 1.5G
+
+  # Redis Cache (Replica)
+  prod-redis-replica:
+    image: redis:7-alpine
+    container_name: autonomica-prod-redis-replica
+    restart: unless-stopped
+    command: redis-server --slaveof prod-redis-primary 6379 --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - prod-redis-replica-data:/data
+    networks:
+      - autonomica-production
+    depends_on:
+      - prod-redis-primary
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 768M
+
+  # Traefik Load Balancer
+  traefik-production:
+    image: traefik:v2.10
+    container_name: autonomica-traefik-production
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/production.toml:/etc/traefik/traefik.toml:ro
+      - ./traefik/ssl:/etc/traefik/ssl:ro
+      - ./traefik/acme:/etc/traefik/acme
+    networks:
+      - autonomica-production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-production.rule=Host(`traefik.autonomica.ai`)"
+      - "traefik.http.routers.traefik-production.service=api@internal"
+      - "traefik.http.routers.traefik-production.tls=true"
+      - "traefik.http.routers.traefik-production.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Monitoring Stack
+  prometheus-production:
+    image: prom/prometheus:latest
+    container_name: autonomica-prometheus-production
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/production.yml:/etc/prometheus/prometheus.yml:ro
+      - prod-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - autonomica-production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus-production.rule=Host(`monitoring.autonomica.ai`)"
+      - "traefik.http.routers.prometheus-production.service=prometheus-production@docker"
+      - "traefik.http.routers.prometheus-production.tls=true"
+      - "traefik.http.routers.prometheus-production.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  grafana-production:
+    image: grafana/grafana:latest
+    container_name: autonomica-grafana-production
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel
+      - GF_SERVER_ROOT_URL=https://grafana.autonomica.ai
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+    volumes:
+      - prod-grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus-production
+    networks:
+      - autonomica-production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana-production.rule=Host(`grafana.autonomica.ai`)"
+      - "traefik.http.routers.grafana-production.service=grafana-production@docker"
+      - "traefik.http.routers.grafana-production.tls=true"
+      - "traefik.http.routers.grafana-production.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Logging Stack
+  elasticsearch-production:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: autonomica-elasticsearch-production
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - cluster.name=autonomica-production
+      - node.name=elasticsearch-production
+    ports:
+      - "9200:9200"
+    volumes:
+      - prod-elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - autonomica-production
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  kibana-production:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: autonomica-kibana-production
+    restart: unless-stopped
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-production:9200
+      - SERVER_NAME=kibana.autonomica.ai
+      - SERVER_BASE_PATH=/kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch-production
+    networks:
+      - autonomica-production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kibana-production.rule=Host(`logs.autonomica.ai`)"
+      - "traefik.http.routers.kibana-production.service=kibana-production@docker"
+      - "traefik.http.routers.kibana-production.tls=true"
+      - "traefik.http.routers.kibana-production.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Backup Service
+  backup-production:
+    image: postgres:15-alpine
+    container_name: autonomica-backup-production
+    restart: "no"
+    environment:
+      - PGPASSWORD=${DATABASE_PASSWORD}
+    volumes:
+      - ./database/backups:/backups
+      - ./scripts/backup-production.sh:/backup.sh:ro
+    depends_on:
+      - prod-db-primary
+    networks:
+      - autonomica-production
+    command: ["/bin/sh", "/backup.sh"]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Health Check Service
+  healthcheck-production:
+    image: curlimages/curl:latest
+    container_name: autonomica-healthcheck-production
+    restart: "no"
+    environment:
+      - FRONTEND_URL=https://autonomica.ai/health
+      - API_URL=https://api.autonomica.ai/health
+      - WORKER_URL=https://worker.autonomica.ai/health
+    volumes:
+      - ./scripts/healthcheck-production.sh:/healthcheck.sh:ro
+    depends_on:
+      - frontend-production
+      - api-production
+      - worker-production
+    networks:
+      - autonomica-production
+    command: ["/bin/sh", "/healthcheck.sh"]
+
+  # Auto-scaling Service
+  autoscaler-production:
+    image: python:3.11-alpine
+    container_name: autonomica-autoscaler-production
+    restart: unless-stopped
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - SCALE_CPU_THRESHOLD=70
+      - SCALE_MEMORY_THRESHOLD=80
+      - MIN_INSTANCES=2
+      - MAX_INSTANCES=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts/autoscaler.py:/app/autoscaler.py:ro
+    working_dir: /app
+    command: ["python", "autoscaler.py"]
+    networks:
+      - autonomica-production
+    depends_on:
+      - prometheus-production
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+networks:
+  autonomica-production:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: br-autonomica-production
+
+volumes:
+  prod-postgres-primary-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/postgres/primary
+  prod-postgres-replica-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/postgres/replica
+  prod-redis-primary-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/redis/primary
+  prod-redis-replica-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/redis/replica
+  prod-prometheus-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/prometheus
+  prod-grafana-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/grafana
+  prod-elasticsearch-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/autonomica/elasticsearch
