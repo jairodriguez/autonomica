@@ -153,6 +153,10 @@ class ContentRepurposingEngine:
         
         return available_strategies
     
+    def get_all_strategies(self) -> List[RepurposingStrategy]:
+        """Get all available repurposing strategies."""
+        return list(self.strategies.values())
+    
     def get_optimal_strategy(self, source_type: ContentType, target_type: ContentType, 
                            requirements: Dict[str, Any]) -> Optional[RepurposingStrategy]:
         """Get the optimal repurposing strategy based on requirements."""
