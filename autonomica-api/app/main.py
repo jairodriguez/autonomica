@@ -7,7 +7,7 @@ import os
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
 import httpx
@@ -1270,6 +1270,1113 @@ async def get_best_parameters(
             "success": False,
             "error": str(e)
         }
+
+# --- SEO Research and Analysis Endpoints ---
+
+@app.post("/api/seo/analyze")
+async def analyze_keyword(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Perform comprehensive SEO analysis for a target keyword"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Perform analysis
+        analysis = await seo_service.analyze_keyword(
+            keyword=request.get("keyword"),
+            domain=request.get("domain")
+        )
+        
+        return {
+            "success": True,
+            "analysis": analysis.dict(),
+            "processing_time_ms": 0  # Placeholder
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during SEO analysis for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "error": f"Analysis failed: {str(e)}"
+        }
+
+@app.post("/api/seo/research")
+async def research_keywords(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Research related keywords and identify opportunities"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Get related keywords
+        related_keywords = await seo_service.semrush_client.get_related_keywords(
+            request.get("seed_keyword"), 
+            request.get("max_related", 50)
+        )
+        
+        # Get data for each related keyword (limit to top 20 for performance)
+        keyword_records = []
+        total_volume = 0
+        difficulties = []
+        cpcs = []
+        
+        for keyword in related_keywords[:20]:
+            try:
+                record = await seo_service.semrush_client.get_keyword_data(keyword)
+                if record.search_volume and record.difficulty and record.cpc:
+                    # Apply filters if provided
+                    min_volume = request.get("min_volume")
+                    max_difficulty = request.get("max_difficulty")
+                    
+                    if (min_volume is None or record.search_volume >= min_volume) and \
+                       (max_difficulty is None or record.difficulty <= max_difficulty):
+                        keyword_records.append(record.dict())
+                        total_volume += record.search_volume
+                        difficulties.append(record.difficulty)
+                        cpcs.append(record.cpc)
+            except Exception as e:
+                logger.warning(f"Could not get data for keyword {keyword}: {str(e)}")
+                continue
+        
+        # Calculate averages
+        avg_difficulty = sum(difficulties) / len(difficulties) if difficulties else 0
+        avg_cpc = sum(cpcs) / len(cpcs) if cpcs else 0
+        
+        # Identify opportunities
+        opportunities = []
+        for record in keyword_records:
+            if record.get("search_volume") and record.get("difficulty") and record.get("cpc"):
+                if record["search_volume"] > 5000 and record["difficulty"] < 40:
+                    opportunities.append(f"High volume ({record['search_volume']}) with low difficulty ({record['difficulty']}): {record['keyword']}")
+                if record["cpc"] > 2.0:
+                    opportunities.append(f"High CPC (${record['cpc']:.2f}): {record['keyword']}")
+        
+        return {
+            "success": True,
+            "seed_keyword": request.get("seed_keyword"),
+            "related_keywords": keyword_records,
+            "total_volume": total_volume,
+            "avg_difficulty": avg_difficulty,
+            "avg_cpc": avg_cpc,
+            "opportunities": opportunities
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during keyword research for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "seed_keyword": request.get("seed_keyword"),
+            "related_keywords": [],
+            "total_volume": 0,
+            "avg_difficulty": 0,
+            "avg_cpc": 0,
+            "opportunities": [],
+            "error": f"Research failed: {str(e)}"
+        }
+
+@app.post("/api/seo/serp")
+async def research_serp(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Research search engine results page (SERP) for a keyword"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Get SERP results
+        serp_results = await seo_service.scraper.scrape_serp(
+            request.get("keyword"), 
+            request.get("num_results", 10)
+        )
+        
+        # Analyze SERP features
+        featured_snippets = sum(1 for r in serp_results if r.featured_snippet)
+        paa_questions = sum(1 for r in serp_results if r.paa_questions)
+        
+        # Competition analysis
+        competition_analysis = {
+            "total_results": len(serp_results),
+            "featured_snippets": featured_snippets,
+            "paa_questions": paa_questions,
+            "top_domains": [r.url.split('/')[2] for r in serp_results[:5] if r.url],
+            "avg_title_length": sum(len(r.title) for r in serp_results) / len(serp_results) if serp_results else 0
+        }
+        
+        return {
+            "success": True,
+            "keyword": request.get("keyword"),
+            "serp_results": [r.dict() for r in serp_results],
+            "featured_snippets": featured_snippets,
+            "paa_questions": paa_questions,
+            "competition_analysis": competition_analysis
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during SERP research for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "keyword": request.get("keyword"),
+            "serp_results": [],
+            "featured_snippets": 0,
+            "paa_questions": 0,
+            "competition_analysis": {},
+            "error": f"SERP research failed: {str(e)}"
+        }
+
+@app.post("/api/seo/cluster")
+async def cluster_keywords(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Cluster keywords based on semantic similarity"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Perform keyword clustering
+        clusters = await seo_service._cluster_keywords(request.get("keywords", []))
+        
+        # Calculate clustering quality (simplified metric)
+        total_keywords = len(request.get("keywords", []))
+        clustering_quality = len(clusters) / max(1, total_keywords // 5)  # Normalize by expected cluster count
+        
+        return {
+            "success": True,
+            "clusters": [c.dict() for c in clusters],
+            "total_keywords": total_keywords,
+            "clustering_quality": min(clustering_quality, 1.0)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during keyword clustering for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "clusters": [],
+            "total_keywords": len(request.get("keywords", [])),
+            "clustering_quality": 0.0,
+            "error": f"Clustering failed: {str(e)}"
+        }
+
+@app.post("/api/seo/opportunities")
+async def find_opportunities(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Find SEO opportunities based on keyword criteria"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        opportunities = []
+        total_volume = 0
+        difficulties = []
+        cpcs = []
+        
+        # Analyze each keyword for opportunities
+        for keyword in request.get("keywords", []):
+            try:
+                record = await seo_service.semrush_client.get_keyword_data(keyword)
+                if record.search_volume and record.difficulty and record.cpc:
+                    min_volume = request.get("min_volume", 1000)
+                    max_difficulty = request.get("max_difficulty", 50)
+                    min_cpc = request.get("min_cpc", 1.0)
+                    
+                    if (record.search_volume >= min_volume and 
+                        record.difficulty <= max_difficulty and 
+                        record.cpc >= min_cpc):
+                        
+                        opportunity = {
+                            "keyword": keyword,
+                            "search_volume": record.search_volume,
+                            "difficulty": record.difficulty,
+                            "cpc": record.cpc,
+                            "score": (record.search_volume / 1000) * (1 - record.difficulty / 100) * record.cpc
+                        }
+                        opportunities.append(opportunity)
+                        
+                        total_volume += record.search_volume
+                        difficulties.append(record.difficulty)
+                        cpcs.append(record.cpc)
+                        
+            except Exception as e:
+                logger.warning(f"Could not analyze keyword {keyword}: {str(e)}")
+                continue
+        
+        # Sort opportunities by score
+        opportunities.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Calculate averages
+        avg_difficulty = sum(difficulties) / len(difficulties) if difficulties else 0
+        avg_cpc = sum(cpcs) / len(cpcs) if cpcs else 0
+        
+        # Generate recommendations
+        recommendations = []
+        if opportunities:
+            if avg_difficulty < 30:
+                recommendations.append("Low competition keywords detected - great opportunity for quick wins")
+            if avg_cpc > 3.0:
+                recommendations.append("High CPC keywords found - strong commercial potential")
+            if len(opportunities) > 10:
+                recommendations.append("Multiple opportunities available - consider content cluster strategy")
+        
+        return {
+            "success": True,
+            "opportunities": opportunities,
+            "total_volume": total_volume,
+            "avg_difficulty": avg_difficulty,
+            "avg_cpc": avg_cpc,
+            "recommendations": recommendations
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during opportunity analysis for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "opportunities": [],
+            "total_volume": 0,
+            "avg_difficulty": 0,
+            "avg_cpc": 0,
+            "recommendations": [],
+            "error": f"Opportunity analysis failed: {str(e)}"
+        }
+
+@app.get("/api/seo/health")
+async def seo_service_health(
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Check SEO service health and configuration"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            return {
+                "status": "unhealthy",
+                "service": "SEO Research Service",
+                "semrush_api": "not_configured",
+                "web_scraper": "not_configured",
+                "openai_api": "not_configured" if not openai_api_key else "configured",
+                "user_id": current_user.user_id,
+                "error": "SEMrush API key not configured"
+            }
+        
+        # Create SEO service and test connectivity
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Test SEMrush API connectivity
+        semrush_status = await seo_service.semrush_client.test_connection()
+        
+        # Test Web Scraper connectivity
+        scraper_status = await seo_service.scraper.test_connection()
+        
+        # Get API quota information
+        quota_info = await seo_service.semrush_client.get_api_quota_info()
+        
+        # Determine overall health
+        overall_healthy = (
+            semrush_status.get("status") == "connected" and 
+            scraper_status.get("status") == "connected"
+        )
+        
+        return {
+            "status": "healthy" if overall_healthy else "unhealthy",
+            "service": "SEO Research Service",
+            "semrush_api": semrush_status,
+            "web_scraper": scraper_status,
+            "openai_api": "configured" if openai_api_key else "not_configured",
+            "quota_info": quota_info,
+            "user_id": current_user.user_id,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking SEO service health: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "service": "SEO Research Service",
+            "error": f"Health check failed: {str(e)}"
+        }
+
+@app.post("/api/seo/scrape")
+async def scrape_website(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Scrape a website for comprehensive SEO analysis"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Validate request
+        url = request.get("url")
+        if not url:
+            raise HTTPException(
+                status_code=400,
+                detail="URL is required"
+            )
+        
+        respect_robots = request.get("respect_robots", True)
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Scrape the website
+        result = await seo_service.scraper.scrape_website(url, respect_robots)
+        
+        if result.get("error"):
+            return {
+                "success": False,
+                "url": url,
+                "error": result["error"]
+            }
+        
+        return {
+            "success": True,
+            "url": url,
+            "scraped_at": result.get("scraped_at"),
+            "seo_data": {
+                "title": result.get("title"),
+                "meta_description": result.get("meta_description"),
+                "meta_keywords": result.get("meta_keywords"),
+                "canonical_url": result.get("canonical_url"),
+                "robots": result.get("robots"),
+                "language": result.get("language"),
+                "charset": result.get("charset"),
+                "content_analysis": result.get("content_analysis"),
+                "links_analysis": result.get("links_analysis"),
+                "images_analysis": result.get("images_analysis"),
+                "social_tags": result.get("social_tags"),
+                "structured_data": result.get("structured_data")
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error scraping website for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "url": request.get("url", ""),
+            "error": f"Scraping failed: {str(e)}"
+        }
+
+@app.post("/api/seo/scrape-multiple")
+async def scrape_multiple_websites(
+    request: dict,
+    current_user: ClerkUser = Depends(get_current_user)
+):
+    """Scrape multiple websites for batch SEO analysis"""
+    try:
+        from app.services.seo_service import create_seo_service
+        
+        # Get configuration
+        semrush_api_key = os.getenv("SEMRUSH_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not semrush_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SEMrush API key not configured. Please set SEMRUSH_API_KEY environment variable."
+            )
+        
+        # Validate request
+        urls = request.get("urls", [])
+        if not urls or not isinstance(urls, list):
+            raise HTTPException(
+                status_code=400,
+                detail="URLs list is required and must be an array"
+            )
+        
+        if len(urls) > 50:  # Limit to prevent abuse
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 50 URLs allowed per request"
+            )
+        
+        respect_robots = request.get("respect_robots", True)
+        
+        # Create SEO service
+        seo_service = create_seo_service(
+            semrush_api_key=semrush_api_key,
+            openai_api_key=openai_api_key
+        )
+        
+        # Scrape multiple websites
+        results = await seo_service.scraper.scrape_multiple_urls(urls, respect_robots)
+        
+        # Count successes and failures
+        successful = sum(1 for r in results if r.get("status") != "failed")
+        failed = len(results) - successful
+        
+        return {
+            "success": True,
+            "total_urls": len(urls),
+            "successful": successful,
+            "failed": failed,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Error scraping multiple websites for user {current_user.user_id}: {str(e)}")
+        return {
+            "success": False,
+            "total_urls": len(request.get("urls", [])),
+            "error": f"Batch scraping failed: {str(e)}"
+        }
+
+# SEO Research and Analysis Routes
+@app.post("/api/seo/dashboard")
+async def get_seo_dashboard():
+    """Get comprehensive SEO dashboard data"""
+    try:
+        # This would typically fetch data from database/cache
+        # For now, return sample dashboard data
+        dashboard_data = {
+            "overview": {
+                "total_keywords_tracked": 150,
+                "average_seo_score": 72.5,
+                "top_performing_keywords": 25,
+                "keywords_needing_attention": 18,
+                "recent_improvements": 12
+            },
+            "performance_metrics": {
+                "organic_traffic": {
+                    "current": 15420,
+                    "previous": 14200,
+                    "change_percent": 8.6
+                },
+                "keyword_rankings": {
+                    "top_3": 45,
+                    "top_10": 89,
+                    "top_100": 142
+                },
+                "click_through_rate": {
+                    "current": 3.2,
+                    "previous": 2.8,
+                    "change_percent": 14.3
+                }
+            },
+            "recent_activities": [
+                {
+                    "type": "keyword_improvement",
+                    "description": "Improved ranking for 'digital marketing' from #8 to #3",
+                    "timestamp": "2024-01-15T10:30:00Z",
+                    "impact": "high"
+                },
+                {
+                    "type": "content_update",
+                    "description": "Updated meta descriptions for 15 pages",
+                    "timestamp": "2024-01-14T15:45:00Z",
+                    "impact": "medium"
+                }
+            ],
+            "quick_actions": [
+                "Analyze new keyword opportunities",
+                "Review technical SEO issues",
+                "Generate content recommendations",
+                "Check competitor analysis"
+            ]
+        }
+        
+        return {"success": True, "data": dashboard_data}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/reports/generate")
+async def generate_seo_report(request: dict):
+    """Generate comprehensive SEO report"""
+    try:
+        report_type = request.get("type", "comprehensive")
+        date_range = request.get("date_range", "last_30_days")
+        include_recommendations = request.get("include_recommendations", True)
+        
+        # Sample report data
+        report_data = {
+            "report_id": f"seo_report_{int(time.time())}",
+            "type": report_type,
+            "date_range": date_range,
+            "generated_at": datetime.now().isoformat(),
+            "summary": {
+                "total_pages_analyzed": 45,
+                "average_seo_score": 74.2,
+                "improvements_made": 23,
+                "issues_found": 12
+            },
+            "detailed_analysis": {
+                "on_page_seo": {
+                    "score": 78.5,
+                    "strengths": ["Optimized titles", "Good meta descriptions"],
+                    "weaknesses": ["Missing alt text", "Poor internal linking"],
+                    "recommendations": [
+                        "Add alt text to all images",
+                        "Improve internal linking structure"
+                    ]
+                },
+                "technical_seo": {
+                    "score": 82.1,
+                    "strengths": ["Fast loading", "Mobile friendly"],
+                    "weaknesses": ["Missing schema markup"],
+                    "recommendations": [
+                        "Implement structured data markup"
+                    ]
+                },
+                "content_quality": {
+                    "score": 71.3,
+                    "strengths": ["Comprehensive content", "Good readability"],
+                    "weaknesses": ["Outdated information", "Low engagement"],
+                    "recommendations": [
+                        "Update outdated content",
+                        "Add interactive elements"
+                    ]
+                }
+            },
+            "keyword_performance": {
+                "top_performers": [
+                    {"keyword": "digital marketing", "position": 3, "traffic": 1200},
+                    {"keyword": "seo tips", "position": 5, "traffic": 850},
+                    {"keyword": "content marketing", "position": 7, "traffic": 650}
+                ],
+                "opportunities": [
+                    {"keyword": "local seo", "current_position": 15, "potential_traffic": 400},
+                    {"keyword": "ecommerce seo", "current_position": 22, "potential_traffic": 300}
+                ]
+            },
+            "competitor_analysis": {
+                "top_competitors": [
+                    {"domain": "competitor1.com", "overlap_score": 0.85, "strength": "high"},
+                    {"domain": "competitor2.com", "overlap_score": 0.72, "strength": "medium"}
+                ],
+                "content_gaps": [
+                    "Video content for product demos",
+                    "Comprehensive comparison guides"
+                ]
+            }
+        }
+        
+        if include_recommendations:
+            report_data["action_plan"] = {
+                "immediate_actions": [
+                    "Fix critical technical issues",
+                    "Update meta descriptions",
+                    "Add missing alt text"
+                ],
+                "short_term_goals": [
+                    "Improve average SEO score to 80+",
+                    "Rank in top 10 for 5 target keywords",
+                    "Increase organic traffic by 15%"
+                ],
+                "long_term_strategy": [
+                    "Develop comprehensive content calendar",
+                    "Implement advanced analytics tracking",
+                    "Build quality backlink profile"
+                ]
+            }
+        
+        return {"success": True, "data": report_data}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/keywords/track")
+async def track_keyword(keyword_request: dict):
+    """Track a new keyword for monitoring"""
+    try:
+        keyword = keyword_request.get("keyword")
+        target_url = keyword_request.get("target_url")
+        priority = keyword_request.get("priority", "medium")
+        
+        if not keyword:
+            return {"success": False, "error": "Keyword is required"}
+        
+        # Sample tracking data
+        tracking_data = {
+            "keyword_id": f"kw_{int(time.time())}",
+            "keyword": keyword,
+            "target_url": target_url,
+            "priority": priority,
+            "added_at": datetime.now().isoformat(),
+            "current_position": None,
+            "best_position": None,
+            "search_volume": None,
+            "difficulty": None,
+            "status": "tracking"
+        }
+        
+        return {"success": True, "data": tracking_data}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/seo/keywords/tracking")
+async def get_tracked_keywords():
+    """Get all tracked keywords"""
+    try:
+        # Sample tracked keywords data
+        tracked_keywords = [
+            {
+                "keyword_id": "kw_1",
+                "keyword": "digital marketing",
+                "target_url": "/digital-marketing-guide",
+                "priority": "high",
+                "added_at": "2024-01-01T00:00:00Z",
+                "current_position": 3,
+                "best_position": 3,
+                "search_volume": 12000,
+                "difficulty": 65,
+                "status": "tracking",
+                "trend": "improving"
+            },
+            {
+                "keyword_id": "kw_2",
+                "keyword": "seo optimization",
+                "target_url": "/seo-optimization",
+                "priority": "medium",
+                "added_at": "2024-01-05T00:00:00Z",
+                "current_position": 12,
+                "best_position": 8,
+                "search_volume": 8000,
+                "difficulty": 75,
+                "status": "tracking",
+                "trend": "stable"
+            }
+        ]
+        
+        return {"success": True, "data": tracked_keywords}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/content/analyze")
+async def analyze_content(content_request: dict):
+    """Analyze content for SEO optimization"""
+    try:
+        content = content_request.get("content")
+        target_keyword = content_request.get("target_keyword")
+        content_type = content_request.get("content_type", "article")
+        
+        if not content or not target_keyword:
+            return {"success": False, "error": "Content and target keyword are required"}
+        
+        # Sample content analysis
+        analysis_result = {
+            "content_id": f"content_{int(time.time())}",
+            "target_keyword": target_keyword,
+            "content_type": content_type,
+            "analyzed_at": datetime.now().isoformat(),
+            "overall_score": 78.5,
+            "word_count": len(content.split()),
+            "keyword_density": 2.1,
+            "readability_score": 85.2,
+            "seo_analysis": {
+                "title_optimization": {
+                    "score": 85,
+                    "issues": ["Title could be more compelling"],
+                    "suggestions": ["Add power words", "Include target keyword"]
+                },
+                "heading_structure": {
+                    "score": 90,
+                    "issues": [],
+                    "suggestions": ["Structure looks good"]
+                },
+                "keyword_usage": {
+                    "score": 75,
+                    "issues": ["Keyword could be used more naturally"],
+                    "suggestions": ["Include LSI keywords", "Use keyword variations"]
+                },
+                "content_quality": {
+                    "score": 80,
+                    "issues": ["Some sentences are too long"],
+                    "suggestions": ["Break up long sentences", "Add more examples"]
+                }
+            },
+            "recommendations": [
+                "Optimize title for better click-through rate",
+                "Include more related keywords naturally",
+                "Add internal links to relevant pages",
+                "Improve content structure with better headings"
+            ]
+        }
+        
+        return {"success": True, "data": analysis_result}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/competitors/analyze")
+async def analyze_competitors(competitor_request: dict):
+    """Analyze competitor websites and strategies"""
+    try:
+        competitors = competitor_request.get("competitors", [])
+        analysis_depth = competitor_request.get("depth", "comprehensive")
+        
+        if not competitors:
+            return {"success": False, "error": "At least one competitor is required"}
+        
+        # Sample competitor analysis
+        analysis_result = {
+            "analysis_id": f"comp_{int(time.time())}",
+            "analyzed_at": datetime.now().isoformat(),
+            "depth": analysis_depth,
+            "competitors": []
+        }
+        
+        for competitor in competitors:
+            comp_analysis = {
+                "domain": competitor,
+                "overall_score": 82.5,
+                "strength_level": "high",
+                "key_metrics": {
+                    "domain_authority": 85,
+                    "organic_traffic": 45000,
+                    "ranking_keywords": 1200,
+                    "backlinks": 15000
+                },
+                "top_keywords": [
+                    {"keyword": "digital marketing", "position": 2, "traffic": 2000},
+                    {"keyword": "seo services", "position": 1, "traffic": 1800}
+                ],
+                "content_strategy": {
+                    "content_frequency": "weekly",
+                    "content_types": ["blog posts", "infographics", "videos"],
+                    "average_length": 1500
+                },
+                "technical_analysis": {
+                    "page_speed": "fast",
+                    "mobile_friendly": True,
+                    "ssl_secure": True,
+                    "structured_data": True
+                },
+                "opportunities": [
+                    "Content gaps in local SEO",
+                    "Missing video content",
+                    "Limited social media presence"
+                ]
+            }
+            analysis_result["competitors"].append(comp_analysis)
+        
+        # Overall insights
+        analysis_result["insights"] = {
+            "market_position": "competitive",
+            "strengths": ["Strong content strategy", "Good technical foundation"],
+            "weaknesses": ["Limited local presence", "Social media gaps"],
+            "recommendations": [
+                "Focus on local SEO opportunities",
+                "Develop video content strategy",
+                "Improve social media engagement"
+            ]
+        }
+        
+        return {"success": True, "data": analysis_result}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/backlinks/analyze")
+async def analyze_backlinks(backlink_request: dict):
+    """Analyze backlink profile and opportunities"""
+    try:
+        domain = backlink_request.get("domain")
+        analysis_type = backlink_request.get("type", "overview")
+        
+        if not domain:
+            return {"success": False, "error": "Domain is required"}
+        
+        # Sample backlink analysis
+        analysis_result = {
+            "domain": domain,
+            "analysis_id": f"backlink_{int(time.time())}",
+            "analyzed_at": datetime.now().isoformat(),
+            "overview": {
+                "total_backlinks": 1250,
+                "unique_domains": 180,
+                "domain_authority": 72,
+                "spam_score": 2.1
+            },
+            "quality_metrics": {
+                "high_quality_backlinks": 890,
+                "medium_quality_backlinks": 280,
+                "low_quality_backlinks": 80,
+                "quality_score": 85.2
+            },
+            "top_referring_domains": [
+                {
+                    "domain": "authority-site1.com",
+                    "domain_authority": 95,
+                    "backlinks": 15,
+                    "anchor_text": "digital marketing guide"
+                },
+                {
+                    "domain": "industry-blog.com",
+                    "domain_authority": 88,
+                    "backlinks": 8,
+                    "anchor_text": "seo tips"
+                }
+            ],
+            "anchor_text_analysis": {
+                "most_common_anchors": [
+                    {"text": "digital marketing", "count": 45, "percentage": 12.5},
+                    {"text": "seo services", "count": 32, "percentage": 8.9},
+                    {"text": "marketing tips", "count": 28, "percentage": 7.8}
+                ],
+                "branded_anchors": 35,
+                "generic_anchors": 180,
+                "exact_match_anchors": 25
+            },
+            "opportunities": [
+                {
+                    "type": "broken_link_building",
+                    "description": "Find broken links on competitor sites",
+                    "potential_impact": "high",
+                    "effort_required": "medium"
+                },
+                {
+                    "type": "content_outreach",
+                    "description": "Create linkable content for industry publications",
+                    "potential_impact": "high",
+                    "effort_required": "high"
+                },
+                {
+                    "type": "local_citations",
+                    "description": "Build local business directory listings",
+                    "potential_impact": "medium",
+                    "effort_required": "low"
+                }
+            ],
+            "risks": [
+                {
+                    "type": "toxic_backlinks",
+                    "description": "15 potentially toxic backlinks detected",
+                    "severity": "medium",
+                    "recommendation": "Disavow toxic backlinks"
+                }
+            ]
+        }
+        
+        return {"success": True, "data": analysis_result}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/rankings/track")
+async def track_rankings(ranking_request: dict):
+    """Track keyword rankings over time"""
+    try:
+        keywords = ranking_request.get("keywords", [])
+        search_engine = ranking_request.get("search_engine", "google")
+        location = ranking_request.get("location", "US")
+        
+        if not keywords:
+            return {"success": False, "error": "At least one keyword is required"}
+        
+        # Sample ranking tracking data
+        tracking_result = {
+            "tracking_id": f"rankings_{int(time.time())}",
+            "search_engine": search_engine,
+            "location": location,
+            "tracked_at": datetime.now().isoformat(),
+            "keywords": []
+        }
+        
+        for keyword in keywords:
+            keyword_data = {
+                "keyword": keyword,
+                "current_position": 5,  # This would be fetched from actual data
+                "previous_position": 7,
+                "change": 2,
+                "search_volume": 8000,
+                "competition": "medium",
+                "trend": "improving"
+            }
+            tracking_result["keywords"].append(keyword_data)
+        
+        return {"success": True, "data": tracking_result}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/seo/rankings/history")
+async def get_ranking_history(keyword: str = None, days: int = 30):
+    """Get historical ranking data for keywords"""
+    try:
+        # Sample historical data
+        history_data = {
+            "keyword": keyword or "digital marketing",
+            "search_engine": "google",
+            "location": "US",
+            "period_days": days,
+            "data_points": []
+        }
+        
+        # Generate sample historical data
+        base_position = 5
+        for i in range(days):
+            date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+            position = base_position + (i % 3) - 1  # Vary position slightly
+            history_data["data_points"].append({
+                "date": date,
+                "position": position,
+                "change": position - base_position
+            })
+        
+        return {"success": True, "data": history_data}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/seo/alerts/setup")
+async def setup_seo_alerts(alert_request: dict):
+    """Setup SEO monitoring alerts"""
+    try:
+        alert_type = alert_request.get("type")
+        conditions = alert_request.get("conditions", {})
+        notification_method = alert_request.get("notification_method", "email")
+        
+        if not alert_type:
+            return {"success": False, "error": "Alert type is required"}
+        
+        # Sample alert setup
+        alert_config = {
+            "alert_id": f"alert_{int(time.time())}",
+            "type": alert_type,
+            "conditions": conditions,
+            "notification_method": notification_method,
+            "created_at": datetime.now().isoformat(),
+            "status": "active",
+            "last_triggered": None
+        }
+        
+        return {"success": True, "data": alert_config}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/seo/alerts/list")
+async def list_seo_alerts():
+    """List all configured SEO alerts"""
+    try:
+        # Sample alerts
+        alerts = [
+            {
+                "alert_id": "alert_1",
+                "type": "ranking_drop",
+                "conditions": {"drop_threshold": 5, "keywords": ["digital marketing"]},
+                "notification_method": "email",
+                "created_at": "2024-01-01T00:00:00Z",
+                "status": "active",
+                "last_triggered": None
+            },
+            {
+                "alert_id": "alert_2",
+                "type": "technical_issue",
+                "conditions": {"issue_types": ["page_speed", "mobile_friendly"]},
+                "notification_method": "slack",
+                "created_at": "2024-01-05T00:00:00Z",
+                "status": "active",
+                "last_triggered": "2024-01-10T15:30:00Z"
+            }
+        ]
+        
+        return {"success": True, "data": alerts}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 # --- Main execution ---
 
