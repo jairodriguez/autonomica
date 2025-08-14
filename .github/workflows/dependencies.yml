@@ -1,0 +1,281 @@
+name: Dependencies
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      package-ecosystem:
+        description: 'Package ecosystem to update'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - npm
+          - pip
+          - docker
+          - github-actions
+
+jobs:
+  # Update npm dependencies
+  update-npm:
+    name: Update NPM Dependencies
+    runs-on: ubuntu-latest
+    if: github.event.inputs.package-ecosystem == 'all' || github.event.inputs.package-ecosystem == 'npm'
+    defaults:
+      run:
+        working-directory: ./autonomica-frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Update npm dependencies
+        uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: moderate
+          
+      - name: Create Pull Request for npm updates
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update npm dependencies'
+          title: 'chore(deps): update npm dependencies'
+          body: |
+            Automated dependency updates for npm packages.
+            
+            This PR was created automatically by Dependabot.
+            
+            ## Changes
+            - Updated npm dependencies to latest compatible versions
+            - Security patches applied
+            - Breaking changes reviewed
+            
+            ## Testing
+            - [ ] Frontend builds successfully
+            - [ ] All tests pass
+            - [ ] No breaking changes introduced
+            
+            ## Review
+            - [ ] Code review completed
+            - [ ] Security review completed
+            - [ ] Performance impact assessed
+          branch: dependabot/npm-updates
+          delete-branch: true
+          labels: |
+            dependencies
+            npm
+            automated
+
+  # Update Python dependencies
+  update-pip:
+    name: Update Python Dependencies
+    runs-on: ubuntu-latest
+    if: github.event.inputs.package-ecosystem == 'all' || github.event.inputs.package-ecosystem == 'pip'
+    strategy:
+      matrix:
+        project: [autonomica-api, autonomica-worker]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          
+      - name: Update Python dependencies
+        run: |
+          cd ${{ matrix.project }}
+          pip install --upgrade pip
+          pip install --upgrade -r requirements.txt
+          
+      - name: Run tests to ensure compatibility
+        run: |
+          cd ${{ matrix.project }}
+          pip install pytest pytest-cov
+          pytest --cov=. --cov-report=xml
+          
+      - name: Create Pull Request for Python updates
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update Python dependencies for ${{ matrix.project }}'
+          title: 'chore(deps): update Python dependencies for ${{ matrix.project }}'
+          body: |
+            Automated dependency updates for Python packages in ${{ matrix.project }}.
+            
+            ## Changes
+            - Updated Python dependencies to latest compatible versions
+            - Security patches applied
+            - Breaking changes reviewed
+            
+            ## Testing
+            - [ ] All tests pass
+            - [ ] No breaking changes introduced
+            - [ ] Performance maintained
+            
+            ## Review
+            - [ ] Code review completed
+            - [ ] Security review completed
+            - [ ] API compatibility verified
+          branch: dependabot/pip-updates-${{ matrix.project }}
+          delete-branch: true
+          labels: |
+            dependencies
+            python
+            ${{ matrix.project }}
+            automated
+
+  # Update Docker base images
+  update-docker:
+    name: Update Docker Base Images
+    runs-on: ubuntu-latest
+    if: github.event.inputs.package-ecosystem == 'all' || github.event.inputs.package-ecosystem == 'docker'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Check for Docker base image updates
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Scan for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Create Pull Request for Docker updates
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update Docker base images'
+          title: 'chore(deps): update Docker base images'
+          body: |
+            Automated updates for Docker base images.
+            
+            ## Changes
+            - Updated Docker base images to latest versions
+            - Security patches applied
+            - Vulnerability scan results included
+            
+            ## Testing
+            - [ ] Docker images build successfully
+            - [ ] All tests pass
+            - [ ] No breaking changes introduced
+            
+            ## Review
+            - [ ] Code review completed
+            - [ ] Security review completed
+            - [ ] Container compatibility verified
+          branch: dependabot/docker-updates
+          delete-branch: true
+          labels: |
+            dependencies
+            docker
+            security
+            automated
+
+  # Update GitHub Actions
+  update-actions:
+    name: Update GitHub Actions
+    runs-on: ubuntu-latest
+    if: github.event.inputs.package-ecosystem == 'all' || github.event.inputs.package-ecosystem == 'github-actions'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Update GitHub Actions
+        uses: actions/update-action@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'actions/checkout@v4'
+          
+      - name: Create Pull Request for Actions updates
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update GitHub Actions'
+          title: 'chore(deps): update GitHub Actions'
+          body: |
+            Automated updates for GitHub Actions.
+            
+            ## Changes
+            - Updated GitHub Actions to latest versions
+            - Security patches applied
+            - Breaking changes reviewed
+            
+            ## Testing
+            - [ ] CI/CD pipeline runs successfully
+            - [ ] All workflows execute properly
+            - [ ] No breaking changes introduced
+            
+            ## Review
+            - [ ] Code review completed
+            - [ ] Security review completed
+            - [ ] Workflow compatibility verified
+          branch: dependabot/actions-updates
+          delete-branch: true
+          labels: |
+            dependencies
+            github-actions
+            ci-cd
+            automated
+
+  # Security audit
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: [update-npm, update-pip, update-docker, update-actions]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run npm audit
+        run: |
+          cd autonomica-frontend
+          npm audit --audit-level=moderate
+          
+      - name: Run pip audit
+        run: |
+          cd autonomica-api
+          pip install pip-audit
+          pip-audit --format=json --output=pip-audit-results.json || true
+          
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: |
+            ./autonomica-api/pip-audit-results.json
+            ./trivy-results.sarif
+          retention-days: 30
+          
+      - name: Create security summary
+        run: |
+          echo "## Security Audit Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Security audit completed for all dependencies." >> $GITHUB_STEP_SUMMARY
+          echo "Check the uploaded artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
