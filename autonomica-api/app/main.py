@@ -87,6 +87,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include API routers
+from app.api.routes import health, agents, agent_management, tasks, workflows
+
+app.include_router(health.router, prefix="/api", tags=["health"])
+app.include_router(agents.router, prefix="/api", tags=["agents"])
+app.include_router(agent_management.router, prefix="/api", tags=["agent-management"])
+app.include_router(tasks.router, prefix="/api", tags=["tasks"])
+app.include_router(workflows.router, prefix="/api", tags=["workflows"])
+
 # Static Files Configuration
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
