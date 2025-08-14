@@ -1,0 +1,367 @@
+# Staging Environment Management Makefile
+# Provides convenient commands for staging environment operations
+
+.PHONY: help deploy deploy-quick deploy-full stop start restart status logs health backup restore clean update upgrade scale test validate
+
+# Default target
+help:
+	@echo "🚀 Autonomica Staging Environment Management"
+	@echo "============================================="
+	@echo ""
+	@echo "📦 Deployment:"
+	@echo "  deploy          Deploy staging environment with full validation"
+	@echo "  deploy-quick    Quick deployment (skip tests)"
+	@echo "  deploy-full     Full deployment with force rebuild"
+	@echo "  stop            Stop all staging services"
+	@echo "  start           Start all staging services"
+	@echo "  restart         Restart all staging services"
+	@echo ""
+	@echo "🔍 Monitoring:"
+	@echo "  status          Show status of all services"
+	@echo "  logs            View logs for all services"
+	@echo "  health          Run comprehensive health check"
+	@echo "  metrics         Show resource usage metrics"
+	@echo ""
+	@echo "🗄️  Database:"
+	@echo "  backup          Create database backup"
+	@echo "  restore         Restore database from backup"
+	@echo "  migrate         Run database migrations"
+	@echo "  init-db         Initialize database with sample data"
+	@echo ""
+	@echo "🧹 Maintenance:"
+	@echo "  clean           Clean up unused resources"
+	@echo "  update          Update all images and dependencies"
+	@echo "  upgrade         Upgrade to latest versions"
+	@echo "  scale           Scale services (e.g., make scale API=3)"
+	@echo ""
+	@echo "🧪 Testing:"
+	@echo "  test            Run staging environment tests"
+	@echo "  validate        Validate staging environment configuration"
+	@echo "  smoke           Run smoke tests"
+	@echo ""
+	@echo "📊 Reports:"
+	@echo "  report          Generate staging environment report"
+	@echo "  audit           Security and compliance audit"
+
+# Configuration
+STAGING_COMPOSE = docker-compose -f docker-compose.staging.yml
+STAGING_SCRIPT = ./scripts/deploy-staging.sh
+HEALTH_SCRIPT = ./scripts/healthcheck.sh
+
+# Deployment Commands
+deploy:
+	@echo "🚀 Deploying staging environment..."
+	@$(STAGING_SCRIPT)
+
+deploy-quick:
+	@echo "⚡ Quick deployment (skipping tests)..."
+	@$(STAGING_SCRIPT) --skip-tests
+
+deploy-full:
+	@echo "🔨 Full deployment with force rebuild..."
+	@$(STAGING_SCRIPT) --force-rebuild
+
+# Service Management
+stop:
+	@echo "🛑 Stopping staging services..."
+	@$(STAGING_COMPOSE) down
+
+start:
+	@echo "▶️  Starting staging services..."
+	@$(STAGING_COMPOSE) up -d
+
+restart:
+	@echo "🔄 Restarting staging services..."
+	@$(STAGING_COMPOSE) restart
+
+# Monitoring Commands
+status:
+	@echo "📊 Staging environment status..."
+	@$(STAGING_COMPOSE) ps
+
+logs:
+	@echo "📝 Viewing staging service logs..."
+	@$(STAGING_COMPOSE) logs -f
+
+health:
+	@echo "🏥 Running staging environment health check..."
+	@$(HEALTH_SCRIPT)
+
+metrics:
+	@echo "📈 Resource usage metrics..."
+	@docker stats --no-stream
+
+# Database Commands
+backup:
+	@echo "💾 Creating database backup..."
+	@mkdir -p database/backups
+	@$(STAGING_COMPOSE) exec -T staging-db pg_dump -U staging_user autonomica_staging > database/backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@echo "✅ Backup created successfully"
+
+restore:
+	@echo "📥 Restoring database from backup..."
+	@if [ -z "$(BACKUP_FILE)" ]; then \
+		echo "❌ Please specify backup file: make restore BACKUP_FILE=backup_filename.sql"; \
+		exit 1; \
+	fi
+	@$(STAGING_COMPOSE) exec -T staging-db psql -U staging_user -d autonomica_staging < database/backups/$(BACKUP_FILE)
+	@echo "✅ Database restored successfully"
+
+migrate:
+	@echo "🗃️  Running database migrations..."
+	@cd autonomica-api && alembic upgrade head
+
+init-db:
+	@echo "🗄️  Initializing database with sample data..."
+	@$(STAGING_COMPOSE) exec -T staging-db psql -U staging_user -d autonomica_staging -f /docker-entrypoint-initdb.d/init.sql
+
+# Maintenance Commands
+clean:
+	@echo "🧹 Cleaning up unused resources..."
+	@docker image prune -f
+	@docker volume prune -f
+	@docker network prune -f
+	@echo "✅ Cleanup completed"
+
+update:
+	@echo "📦 Updating images and dependencies..."
+	@$(STAGING_COMPOSE) pull
+	@$(STAGING_COMPOSE) up -d --build
+	@echo "✅ Update completed"
+
+upgrade:
+	@echo "⬆️  Upgrading to latest versions..."
+	@$(STAGING_COMPOSE) down
+	@$(STAGING_COMPOSE) pull
+	@$(STAGING_COMPOSE) up -d --build
+	@echo "✅ Upgrade completed"
+
+scale:
+	@echo "📏 Scaling services..."
+	@if [ -z "$(API)" ]; then \
+		echo "❌ Please specify service and count: make scale API=3"; \
+		exit 1; \
+	fi
+	@$(STAGING_COMPOSE) up -d --scale api-staging=$(API)
+	@echo "✅ Services scaled successfully"
+
+# Testing Commands
+test:
+	@echo "🧪 Running staging environment tests..."
+	@$(STAGING_SCRIPT) --skip-migrations
+
+validate:
+	@echo "✅ Validating staging environment configuration..."
+	@$(STAGING_COMPOSE) config
+	@echo "✅ Configuration validation completed"
+
+smoke:
+	@echo "💨 Running smoke tests..."
+	@$(HEALTH_SCRIPT)
+
+# Reporting Commands
+report:
+	@echo "📊 Generating staging environment report..."
+	@echo "Report generated at: $(shell date)"
+	@echo ""
+	@echo "Service Status:"
+	@$(STAGING_COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+	@echo ""
+	@echo "Resource Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+	@echo ""
+	@echo "Recent Logs:"
+	@$(STAGING_COMPOSE) logs --tail=10
+
+audit:
+	@echo "🔒 Running security and compliance audit..."
+	@echo "Checking for security vulnerabilities..."
+	@cd autonomica-api && python run_code_quality.py --check security
+	@echo "Checking for code quality issues..."
+	@cd autonomica-api && python run_code_quality.py --check linting
+	@echo "Checking frontend code quality..."
+	@cd autonomica-frontend && npm run lint:all
+	@echo "✅ Audit completed"
+
+# Utility Commands
+shell:
+	@echo "🐚 Opening shell in API container..."
+	@$(STAGING_COMPOSE) exec api-staging bash
+
+db-shell:
+	@echo "🗄️  Opening database shell..."
+	@$(STAGING_COMPOSE) exec staging-db psql -U staging_user -d autonomica_staging
+
+redis-shell:
+	@echo "🔴 Opening Redis shell..."
+	@$(STAGING_COMPOSE) exec staging-redis redis-cli
+
+monitor:
+	@echo "📊 Opening monitoring interfaces..."
+	@echo "Prometheus: http://localhost:9090"
+	@echo "Grafana: http://localhost:3001"
+	@echo "Kibana: http://localhost:5601"
+	@echo "Frontend: http://localhost:3000"
+	@echo "API: http://localhost:8000"
+
+logs-tail:
+	@echo "📝 Tailing logs for specific service..."
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "❌ Please specify service: make logs-tail SERVICE=api-staging"; \
+		exit 1; \
+	fi
+	@$(STAGING_COMPOSE) logs -f --tail=100 $(SERVICE)
+
+logs-error:
+	@echo "❌ Viewing error logs..."
+	@$(STAGING_COMPOSE) logs | grep -i "error\|exception\|traceback" | tail -50
+
+logs-access:
+	@echo "🌐 Viewing access logs..."
+	@$(STAGING_COMPOSE) logs nginx-staging | grep -E "GET|POST|PUT|DELETE" | tail -50
+
+# Performance Commands
+performance:
+	@echo "⚡ Performance analysis..."
+	@echo "CPU Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}" | head -10
+	@echo ""
+	@echo "Memory Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}" | head -10
+	@echo ""
+	@echo "Network Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.NetIO}}" | head -10
+
+benchmark:
+	@echo "🏃 Running performance benchmarks..."
+	@echo "API Response Time:"
+	@curl -w "Time: %{time_total}s\n" -o /dev/null -s http://localhost:8000/health
+	@echo "Frontend Response Time:"
+	@curl -w "Time: %{time_total}s\n" -o /dev/null -s http://localhost:3000/health
+
+# Security Commands
+security-scan:
+	@echo "🔒 Running security scan..."
+	@cd autonomica-api && python run_code_quality.py --check security
+	@echo "Checking for dependency vulnerabilities..."
+	@cd autonomica-api && safety check
+	@echo "✅ Security scan completed"
+
+vulnerability-check:
+	@echo "🛡️  Checking for vulnerabilities..."
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+		aquasec/trivy image autonomica-api:staging
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+		aquasec/trivy image autonomica-frontend:staging
+
+# Backup and Recovery Commands
+backup-all:
+	@echo "💾 Creating comprehensive backup..."
+	@mkdir -p backups/$(shell date +%Y%m%d_%H%M%S)
+	@$(STAGING_COMPOSE) exec -T staging-db pg_dump -U staging_user autonomica_staging > backups/$(shell date +%Y%m%d_%H%M%S)/database.sql
+	@docker-compose -f docker-compose.staging.yml config > backups/$(shell date +%Y%m%d_%H%M%S)/compose.yml
+	@cp staging.env backups/$(shell date +%Y%m%d_%H%M%S)/environment.env
+	@echo "✅ Comprehensive backup created"
+
+restore-all:
+	@echo "📥 Restoring from comprehensive backup..."
+	@if [ -z "$(BACKUP_DIR)" ]; then \
+		echo "❌ Please specify backup directory: make restore-all BACKUP_DIR=backup_timestamp"; \
+		exit 1; \
+	fi
+	@$(STAGING_COMPOSE) down
+	@$(STAGING_COMPOSE) up -d staging-db
+	@sleep 10
+	@$(STAGING_COMPOSE) exec -T staging-db psql -U staging_user -d autonomica_staging < backups/$(BACKUP_DIR)/database.sql
+	@$(STAGING_COMPOSE) up -d
+	@echo "✅ Comprehensive restore completed"
+
+# Development Commands
+dev-setup:
+	@echo "🛠️  Setting up development environment..."
+	@make deploy-quick
+	@make migrate
+	@make init-db
+	@echo "✅ Development environment ready"
+
+dev-reset:
+	@echo "🔄 Resetting development environment..."
+	@make stop
+	@make clean
+	@make dev-setup
+	@echo "✅ Development environment reset"
+
+# Emergency Commands
+emergency-stop:
+	@echo "🚨 Emergency stop of all services..."
+	@$(STAGING_COMPOSE) down --remove-orphans
+	@docker stop $(shell docker ps -q) 2>/dev/null || true
+	@echo "✅ All services stopped"
+
+emergency-restart:
+	@echo "🚨 Emergency restart of all services..."
+	@make emergency-stop
+	@sleep 5
+	@make start
+	@echo "✅ Emergency restart completed"
+
+# Information Commands
+info:
+	@echo "ℹ️  Staging Environment Information"
+	@echo "=================================="
+	@echo "Docker Compose: $(STAGING_COMPOSE)"
+	@echo "Deploy Script: $(STAGING_SCRIPT)"
+	@echo "Health Script: $(HEALTH_SCRIPT)"
+	@echo ""
+	@echo "Service URLs:"
+	@echo "  Frontend:     http://localhost:3000"
+	@echo "  API:          http://localhost:8000"
+	@echo "  Worker:       http://localhost:8001"
+	@echo "  Monitoring:   http://localhost:9090"
+	@echo "  Grafana:      http://localhost:3001"
+	@echo "  Kibana:       http://localhost:5601"
+
+version:
+	@echo "📋 Version Information"
+	@echo "====================="
+	@echo "Docker: $(shell docker --version)"
+	@echo "Docker Compose: $(shell docker-compose --version)"
+	@echo "Python: $(shell python3 --version 2>/dev/null || echo "Not available")"
+	@echo "Node.js: $(shell node --version 2>/dev/null || echo "Not available")"
+	@echo "Git: $(shell git --version)"
+
+# Help for specific commands
+deploy-help:
+	@echo "🚀 Deployment Options"
+	@echo "===================="
+	@echo "make deploy          - Full deployment with tests and validation"
+	@echo "make deploy-quick    - Quick deployment (skip tests)"
+	@echo "make deploy-full     - Force rebuild all images"
+	@echo ""
+	@echo "make stop            - Stop all services"
+	@echo "make start           - Start all services"
+	@echo "make restart         - Restart all services"
+
+monitoring-help:
+	@echo "🔍 Monitoring Commands"
+	@echo "====================="
+	@echo "make status          - Show service status"
+	@echo "make logs            - View all logs"
+	@echo "make health          - Run health check"
+	@echo "make metrics         - Show resource usage"
+	@echo ""
+	@echo "make logs-tail SERVICE=api-staging  - Tail specific service logs"
+	@echo "make logs-error                     - View error logs"
+	@echo "make logs-access                    - View access logs"
+
+database-help:
+	@echo "🗄️  Database Commands"
+	@echo "===================="
+	@echo "make backup          - Create database backup"
+	@echo "make restore BACKUP_FILE=backup.sql - Restore from backup"
+	@echo "make migrate         - Run migrations"
+	@echo "make init-db         - Initialize with sample data"
+	@echo ""
+	@echo "make db-shell        - Open database shell"
+	@echo "make backup-all      - Create comprehensive backup"
+	@echo "make restore-all BACKUP_DIR=backup_timestamp - Restore everything"
