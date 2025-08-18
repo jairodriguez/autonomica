@@ -1,0 +1,30 @@
+# Global code owners
+* @jairodriguez
+
+# Frontend code ownership
+autonomica-frontend/ @jairodriguez
+
+# Backend API code ownership
+autonomica-api/ @jairodriguez
+
+# Worker pod code ownership
+worker/ @jairodriguez
+
+# Documentation ownership
+docs/ @jairodriguez
+*.md @jairodriguez
+
+# Configuration files ownership
+.github/ @jairodriguez
+.env* @jairodriguez
+*.toml @jairodriguez
+*.yml @jairodriguez
+*.yaml @jairodriguez
+
+# Security and deployment ownership
+.github/workflows/ @jairodriguez
+.github/BRANCHING_STRATEGY.md @jairodriguez
+.github/CODEOWNERS @jairodriguez
+
+# Community use cases (read-only for now)
+community_usecase/ @jairodriguez

@@ -1,0 +1,83 @@
+[core]
+    autocrlf = input
+    eol = lf
+    excludesfile = .gitignore
+    editor = code --wait
+    pager = cat
+
+[init]
+    defaultBranch = main
+
+[branch]
+    main = origin/main
+    develop = origin/develop
+
+[merge]
+    ff = false
+    commit = true
+    log = true
+
+[rebase]
+    autoStash = true
+    autoSquash = true
+
+[pull]
+    rebase = true
+    ff = only
+
+[push]
+    default = simple
+    followTags = true
+
+[commit]
+    verbose = true
+    template = .gitmessage
+
+[log]
+    decorate = short
+    abbrevCommit = true
+    graph = true
+    oneline = true
+
+[status]
+    showUntrackedFiles = all
+    branch = true
+    short = false
+
+[color]
+    ui = auto
+    branch = auto
+    diff = auto
+    status = auto
+
+[alias]
+    st = status
+    co = checkout
+    br = branch
+    ci = commit
+    ca = commit -a
+    cm = commit -m
+    unstage = reset HEAD --
+    last = log -1 HEAD
+    visual = !gitk
+    lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+    ll = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --all
+    amend = commit --amend --reuse-message=HEAD
+    undo = reset --soft HEAD^
+    cleanup = "!git branch --merged | grep -v '\\*' | xargs -n 1 git branch -d"
+    root = rev-parse --show-toplevel
+    upstream = rev-parse --abbrev-ref --symbolic-full-name @{u}
+    upstream-url = remote get-url upstream
+    origin-url = remote get-url origin
+
+[filter "lfs"]
+    clean = git-lfs clean -- %f
+    smudge = git-lfs smudge -- %f
+    process = git-lfs filter-process
+    required = true
+
+[url "https://github.com/"]
+    insteadOf = git@github.com:
+
+[url "https://github.com/jairodriguez/autonomica.git"]
+    insteadOf = git@github.com:jairodriguez/autonomica.git
