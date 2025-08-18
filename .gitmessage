@@ -1,0 +1,62 @@
+# <type>(<scope>): <subject>
+# 
+# <body>
+# 
+# <footer>
+
+# Types:
+#   feat     (new feature for the user, not a new feature for build script)
+#   fix      (bug fix for the user, not a fix to a build script)
+#   docs     (changes to the documentation)
+#   style    (formatting, missing semi colons, etc; no production code change)
+#   refactor (refactoring production code, eg. renaming a variable)
+#   test     (adding missing tests, refactoring tests; no production code change)
+#   chore    (updating grunt tasks etc; no production code change)
+#   perf     (a code change that improves performance)
+#   ci       (changes to CI configuration files and scripts)
+#   build    (changes that affect the build system or external dependencies)
+#   revert   (reverts a previous commit)
+
+# Scopes:
+#   api      (backend API changes)
+#   frontend (frontend changes)
+#   worker   (worker pod changes)
+#   docs     (documentation changes)
+#   ci       (CI/CD pipeline changes)
+#   deps     (dependency updates)
+#   config   (configuration changes)
+
+# Subject:
+#   - use imperative, present tense: "change" not "changed" nor "changes"
+#   - don't capitalize first letter
+#   - no dot (.) at the end
+
+# Body:
+#   - use imperative, present tense: "change" not "changed" nor "changes"
+#   - include motivation for the change and contrast with previous behavior
+
+# Footer:
+#   - Breaking changes should start with "BREAKING CHANGE: "
+#   - Issues should be referenced by closing them: "Closes #123"
+#   - Co-authored commits: "Co-authored-by: Name <email@example.com>"
+
+# Examples:
+# feat(api): add user authentication endpoint
+# 
+# Implements JWT-based authentication with Clerk integration.
+# Adds /api/auth/login and /api/auth/verify endpoints.
+# 
+# Closes #123
+# Co-authored-by: John Doe <john@example.com>
+
+# fix(frontend): resolve navigation menu bug
+# 
+# Fixes issue where navigation menu would not close on mobile devices.
+# Adds proper event handling for touch events.
+# 
+# Closes #456
+
+# docs(readme): update installation instructions
+# 
+# Updates README with new dependency requirements and setup steps.
+# Includes troubleshooting section for common issues.

@@ -8,11 +8,12 @@ import json
 import asyncio
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import httpx
+import logging
 
 # Workforce orchestrator
 from app.owl.workforce import Workforce
@@ -82,6 +83,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+from app.api.routes.seo import router as seo_router
+from app.api.routes.seo_pipeline import router as seo_pipeline_router
+from app.api.routes.keyword_suggestions import router as keyword_suggestions_router
+app.include_router(seo_router)
+app.include_router(seo_pipeline_router)
+app.include_router(keyword_suggestions_router)
 
 # Instantiate central Workforce orchestrator
 workforce = Workforce(config.AI_MODEL)

@@ -1,0 +1,134 @@
+[run]
+# Source code to measure coverage for
+source = app
+
+# Include patterns
+include = 
+    app/**/*.py
+    */**/*.py
+
+# Exclude patterns
+omit = 
+    */tests/*
+    */test_*.py
+    */__init__.py
+    */migrations/*
+    */venv/*
+    */.venv/*
+    */node_modules/*
+    */__pycache__/*
+    */scripts/*
+    */monitoring/*
+    */docs/*
+    */examples/*
+    */community_usecase/*
+    */local/*
+    */final_output/*
+    */licenses/*
+    */owl/*
+    */Python/*
+    */quick_test_chat.sh
+    */start_autonomica.sh
+    */stop_autonomica.sh
+    */test_autonomica.sh
+    */uv.lock
+    */pyproject.toml
+    */requirements*.txt
+    */.env*
+    */env.*
+    */server.*
+    */security-report.md
+    */setup_for_testing.py
+    */test_*.py
+    */ollama-performance-dashboard.html
+
+# Branch coverage
+branch = True
+
+# Parallel execution
+parallel = True
+
+[report]
+# Exclude lines from coverage
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+    
+    # Don't complain about missing debug-only code:
+    def __repr__
+    if self\.debug
+    
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Don't complain if non-runnable code isn't run:
+    if 0:
+    if __name__ == .__main__.:
+    
+    # Don't complain about abstract methods:
+    @(abc\.)?abstractmethod
+    
+    # Don't complain about type checking:
+    if TYPE_CHECKING:
+    
+    # Don't complain about test files:
+    def test_
+    class Test
+    
+    # Don't complain about main blocks:
+    if __name__ == "__main__":
+    
+    # Don't complain about async/await:
+    async def
+    await
+    
+    # Don't complain about type hints:
+    : Optional\[
+    : Union\[
+    : List\[
+    : Dict\[
+    : Tuple\[
+    : Callable\[
+
+# Show missing lines
+show_missing = True
+
+# Precision for percentages
+precision = 2
+
+# Output formats
+html_dir = htmlcov
+xml_output = coverage.xml
+
+# Fail under threshold
+fail_under = 80
+
+[html]
+# HTML report directory
+directory = htmlcov
+
+# Extra CSS for styling
+extra_css = 
+
+# Title for the HTML report
+title = Autonomica API Test Coverage Report
+
+# Show source code
+show_source = True
+
+# Show missing lines
+show_missing = True
+
+# Show branch coverage
+show_branches = True
+
+# Show line numbers
+show_line_numbers = True
+
+[xml]
+# XML output file
+output = coverage.xml
+
+# Include package information
+package = app
