@@ -88,9 +88,11 @@ app.add_middleware(
 from app.api.routes.seo import router as seo_router
 from app.api.routes.seo_pipeline import router as seo_pipeline_router
 from app.api.routes.keyword_suggestions import router as keyword_suggestions_router
+from app.api.routes.seo_scores import router as seo_scores_router
 app.include_router(seo_router)
 app.include_router(seo_pipeline_router)
 app.include_router(keyword_suggestions_router)
+app.include_router(seo_scores_router)
 
 # Instantiate central Workforce orchestrator
 workforce = Workforce(config.AI_MODEL)
