@@ -1,0 +1,100 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * 1'  # Run weekly on Mondays at 2 AM
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install security tools
+        run: |
+          pip install bandit safety pip-audit
+          
+      - name: Run Bandit security scan
+        run: |
+          cd autonomica-api
+          bandit -r . -f json -o bandit-report.json || true
+          
+      - name: Run Safety check
+        run: |
+          cd autonomica-api
+          safety check -r requirements.txt --json --output safety-report.json || true
+          
+      - name: Run pip-audit
+        run: |
+          cd autonomica-api
+          pip-audit --format json --output pip-audit-report.json || true
+          
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'json'
+          output: 'trivy-report.json'
+          
+      - name: Run OWASP ZAP scan
+        uses: zaproxy/action-full-scan@v0.8.0
+        with:
+          target: 'https://staging.autonomica.app'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+          
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+            pip-audit-report.json
+            trivy-report.json
+            zap-report.html
+            
+      - name: Comment PR with security findings
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🔒 Security Scan Results\n\n';
+            
+            try {
+              if (fs.existsSync('bandit-report.json')) {
+                const bandit = JSON.parse(fs.readFileSync('bandit-report.json', 'utf8'));
+                comment += `### Bandit Scan: ${bandit.results?.length || 0} issues found\n`;
+              }
+              
+              if (fs.existsSync('safety-report.json')) {
+                const safety = JSON.parse(fs.readFileSync('safety-report.json', 'utf8'));
+                comment += `### Safety Check: ${safety.vulnerabilities?.length || 0} vulnerabilities found\n`;
+              }
+              
+              comment += '\n📊 Full reports available in workflow artifacts.';
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } catch (error) {
+              console.error('Error creating comment:', error);
+            }

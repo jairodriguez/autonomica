@@ -1,0 +1,94 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 3 * * 2'  # Run weekly on Tuesdays at 3 AM
+  workflow_dispatch:
+
+jobs:
+  performance-test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install performance testing tools
+        run: |
+          pip install locust pytest-benchmark
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'autonomica-frontend/package-lock.json'
+          
+      - name: Install frontend dependencies
+        run: |
+          cd autonomica-frontend
+          npm ci
+          
+      - name: Build frontend
+        run: |
+          cd autonomica-frontend
+          npm run build
+          
+      - name: Run Locust load testing
+        run: |
+          cd autonomica-api
+          locust -f tests/performance/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 60s --html=locust-report.html
+          
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            https://staging.autonomica.app
+            https://staging.autonomica.app/projects
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          
+      - name: Run API performance tests
+        run: |
+          cd autonomica-api
+          pytest tests/performance/ -v --benchmark-only
+          
+      - name: Upload performance reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-reports
+          path: |
+            autonomica-api/locust-report.html
+            autonomica-api/.lighthouseci/
+            autonomica-api/.pytest_cache/
+            
+      - name: Comment PR with performance results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let comment = '## 🚀 Performance Test Results\n\n';
+            comment += '### Load Testing\n';
+            comment += '- Locust load test completed with 10 users\n';
+            comment += '- Performance metrics available in artifacts\n\n';
+            comment += '### Lighthouse CI\n';
+            comment += '- Frontend performance analysis completed\n';
+            comment += '- Accessibility and SEO scores available\n\n';
+            comment += '📊 Full reports available in workflow artifacts.';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
