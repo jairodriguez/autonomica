@@ -1,0 +1,326 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autonomica-api"
+version = "0.1.0"
+description = "Autonomica AI Marketing Platform API"
+authors = [{name = "Autonomica Team", email = "team@autonomica.app"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "python-multipart>=0.0.6",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "redis>=5.0.0",
+    "httpx>=0.25.0",
+    "openai>=1.0.0",
+    "anthropic>=0.7.0",
+    "google-generativeai>=0.3.0",
+    "beautifulsoup4>=4.12.0",
+    "requests>=2.31.0",
+    "aiofiles>=23.2.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "pytest-xdist>=3.3.0",
+    "httpx>=0.25.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+    "black>=23.12.0",
+    "isort>=5.13.0",
+    "flake8>=7.0.0",
+    "bandit>=1.7.5",
+    "safety>=2.3.0",
+    "pip-audit>=7.0.0",
+    "codespell>=2.2.0",
+    "coverage>=7.3.0",
+    "coverage-badge>=1.1.0",
+]
+
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "pytest-xdist>=3.3.0",
+    "httpx>=0.25.0",
+    "coverage>=7.3.0",
+    "coverage-badge>=1.1.0",
+]
+
+lint = [
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+    "black>=23.12.0",
+    "isort>=5.13.0",
+    "flake8>=7.0.0",
+    "bandit>=1.7.5",
+    "safety>=2.3.0",
+    "pip-audit>=7.0.0",
+    "codespell>=2.2.0",
+]
+
+[tool.ruff]
+# Enable pycodestyle (`E`), Pyflakes (`F`), and isort (`I`) codes by default.
+select = ["E", "F", "I", "B", "C4", "UP", "N", "W", "S", "A", "COM", "C90", "DTZ", "T10", "T20", "EM", "EXE", "FA", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PLR", "PLW", "PT", "PTH", "PYI", "RET", "RSE", "SIM", "SLF", "SLOT", "TCH", "TID", "TCH", "ARG", "BLE", "FBT", "LOG", "PIE", "TRY", "NPY", "AIR", "PERF", "RUF"]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+    "PLR0913",  # too many arguments
+    "PLR0915",  # too many statements
+    "PLR0912",  # too many branches
+    "PLR0911",  # too many return statements
+    "PLR0914",  # too many boolean expressions
+    "PLR0916",  # too many boolean expressions
+    "PLR0917",  # too many boolean expressions
+    "PLR0918",  # too many boolean expressions
+    "PLR0919",  # too many boolean expressions
+    "PLR0920",  # too many boolean expressions
+    "PLR0921",  # too many boolean expressions
+    "PLR0922",  # too many boolean expressions
+    "PLR0923",  # too many boolean expressions
+    "PLR0924",  # too many boolean expressions
+    "PLR0925",  # too many boolean expressions
+    "PLR0926",  # too many boolean expressions
+    "PLR0927",  # too many boolean expressions
+    "PLR0928",  # too many boolean expressions
+    "PLR0929",  # too many boolean expressions
+    "PLR0930",  # too many boolean expressions
+    "PLR0931",  # too many boolean expressions
+    "PLR0932",  # too many boolean expressions
+    "PLR0933",  # too many boolean expressions
+    "PLR0934",  # too many boolean expressions
+    "PLR0935",  # too many boolean expressions
+    "PLR0936",  # too many boolean expressions
+    "PLR0937",  # too many boolean expressions
+    "PLR0938",  # too many boolean expressions
+    "PLR0939",  # too many boolean expressions
+    "PLR0940",  # too many boolean expressions
+    "PLR0941",  # too many boolean expressions
+    "PLR0942",  # too many boolean expressions
+    "PLR0943",  # too many boolean expressions
+    "PLR0944",  # too many boolean expressions
+    "PLR0945",  # too many boolean expressions
+    "PLR0946",  # too many boolean expressions
+    "PLR0947",  # too many boolean expressions
+    "PLR0948",  # too many boolean expressions
+    "PLR0949",  # too many boolean expressions
+    "PLR0950",  # too many boolean expressions
+    "PLR0951",  # too many boolean expressions
+    "PLR0952",  # too many boolean expressions
+    "PLR0953",  # too many boolean expressions
+    "PLR0954",  # too many boolean expressions
+    "PLR0955",  # too many boolean expressions
+    "PLR0956",  # too many boolean expressions
+    "PLR0957",  # too many boolean expressions
+    "PLR0958",  # too many boolean expressions
+    "PLR0959",  # too many boolean expressions
+    "PLR0960",  # too many boolean expressions
+    "PLR0961",  # too many boolean expressions
+    "PLR0962",  # too many boolean expressions
+    "PLR0963",  # too many boolean expressions
+    "PLR0964",  # too many boolean expressions
+    "PLR0965",  # too many boolean expressions
+    "PLR0966",  # too many boolean expressions
+    "PLR0967",  # too many boolean expressions
+    "PLR0968",  # too many boolean expressions
+    "PLR0969",  # too many boolean expressions
+    "PLR0970",  # too many boolean expressions
+    "PLR0971",  # too many boolean expressions
+    "PLR0972",  # too many boolean expressions
+    "PLR0973",  # too many boolean expressions
+    "PLR0974",  # too many boolean expressions
+    "PLR0975",  # too many boolean expressions
+    "PLR0976",  # too many boolean expressions
+    "PLR0977",  # too many boolean expressions
+    "PLR0978",  # too many boolean expressions
+    "PLR0979",  # too many boolean expressions
+    "PLR0980",  # too many boolean expressions
+    "PLR0981",  # too many boolean expressions
+    "PLR0982",  # too many boolean expressions
+    "PLR0983",  # too many boolean expressions
+    "PLR0984",  # too many boolean expressions
+    "PLR0985",  # too many boolean expressions
+    "PLR0986",  # too many boolean expressions
+    "PLR0987",  # too many boolean expressions
+    "PLR0988",  # too many boolean expressions
+    "PLR0989",  # too many boolean expressions
+    "PLR0990",  # too many boolean expressions
+    "PLR0991",  # too many boolean expressions
+    "PLR0992",  # too many boolean expressions
+    "PLR0993",  # too many boolean expressions
+    "PLR0994",  # too many boolean expressions
+    "PLR0995",  # too many boolean expressions
+    "PLR0996",  # too many boolean expressions
+    "PLR0997",  # too many boolean expressions
+    "PLR0998",  # too many boolean expressions
+    "PLR0999",  # too many boolean expressions
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".darcs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "community_usecase",
+    "local",
+    "final_output",
+    "licenses",
+    "owl",
+    "Python",
+    "examples",
+    "environment",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.11
+target-version = "py311"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*.py" = ["S101", "S105", "S106", "S108", "S603", "S607"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "test_*",
+    "*_test",
+]
+ignore_missing_imports = true
+disallow_untyped_defs = false
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__init__.py",
+    "*/migrations/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/node_modules/*",
+    "*/__pycache__/*",
+    "*/scripts/*",
+    "*/monitoring/*",
+    "*/docs/*",
+    "*/examples/*",
+    "*/community_usecase/*",
+    "*/local/*",
+    "*/final_output/*",
+    "*/licenses/*",
+    "*/owl/*",
+    "*/Python/*",
+    "*/quick_test_chat.sh",
+    "*/start_autonomica.sh",
+    "*/stop_autonomica.sh",
+    "*/test_autonomica.sh",
+    "*/uv.lock",
+    "*/pyproject.toml",
+    "*/requirements*.txt",
+    "*/.env*",
+    "*/env.*",
+    "*/server.*",
+    "*/security-report.md",
+    "*/setup_for_testing.py",
+    "*/test_*.py",
+    "*/ollama-performance-dashboard.html",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv", "community_usecase", "local", "final_output", "licenses", "owl", "Python", "examples", "environment"]
+skips = ["B101", "B601"]
+
+[tool.codespell]
+ignore-words-list = "ans,creat,hist,nd,te,ue"
+skip = "*.pyc,*.pyo,*.pyd,.git,__pycache__,.venv,venv,node_modules,community_usecase,local,final_output,licenses,owl,Python,examples,environment"

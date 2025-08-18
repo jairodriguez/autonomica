@@ -1,0 +1,331 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - frontend
+          - backend
+          - worker
+
+env:
+  ENVIRONMENT: staging
+  FRONTEND_URL: https://staging.autonomica.app
+  BACKEND_URL: https://staging-api.autonomica.app
+  WORKER_URL: https://staging-worker.autonomica.app
+
+jobs:
+  # Test and Quality Checks
+  test-and-quality:
+    name: Test and Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install frontend dependencies
+        run: |
+          cd autonomica-frontend
+          npm ci
+
+      - name: Install backend dependencies
+        run: |
+          cd autonomica-api
+          pip install -r requirements.txt
+
+      - name: Install worker dependencies
+        run: |
+          cd worker
+          pip install -r requirements.txt
+
+      - name: Run frontend linting
+        run: |
+          cd autonomica-frontend
+          npm run lint
+
+      - name: Run frontend type checking
+        run: |
+          cd autonomica-frontend
+          npm run typecheck
+
+      - name: Run frontend tests
+        run: |
+          cd autonomica-frontend
+          npm test -- --passWithNoTests --coverage
+
+      - name: Run backend linting
+        run: |
+          cd autonomica-api
+          python -m ruff check .
+
+      - name: Run backend type checking
+        run: |
+          cd autonomica-api
+          python -m mypy app/
+
+      - name: Run backend tests
+        run: |
+          cd autonomica-api
+          python -m pytest tests/ --cov=app --cov-report=xml
+
+      - name: Run worker tests
+        run: |
+          cd worker
+          python -m pytest tests/ --cov=worker --cov-report=xml
+
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/integration/ --cov=integration --cov-report=xml
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: |
+            autonomica-api/coverage.xml
+            worker/coverage.xml
+            tests/coverage.xml
+          flags: staging
+          name: staging-coverage
+
+  # Deploy Backend
+  deploy-backend:
+    name: Deploy Backend
+    needs: test-and-quality
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.service == 'all' || github.event.inputs.service == 'backend'))
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: |
+          cd autonomica-api
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway up --service backend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          for i in {1..10}; do
+            if curl -f "$BACKEND_URL/health" >/dev/null 2>&1; then
+              echo "Backend is healthy"
+              break
+            fi
+            echo "Waiting for backend to be ready... (attempt $i/10)"
+            sleep 10
+          done
+
+  # Deploy Worker
+  deploy-worker:
+    name: Deploy Worker
+    needs: test-and-quality
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.service == 'all' || github.event.inputs.service == 'worker'))
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: |
+          cd worker
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway up --service worker --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          for i in {1..10}; do
+            if curl -f "$WORKER_URL/health" >/dev/null 2>&1; then
+              echo "Worker is healthy"
+              break
+            fi
+            echo "Waiting for worker to be ready... (attempt $i/10)"
+            sleep 10
+          done
+
+  # Deploy Frontend
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: test-and-quality
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.service == 'all' || github.event.inputs.service == 'frontend'))
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        run: |
+          cd autonomica-frontend
+          vercel --prod --confirm --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          for i in {1..10}; do
+            if curl -f "$FRONTEND_URL/api/health" >/dev/null 2>&1; then
+              echo "Frontend is healthy"
+              break
+            fi
+            echo "Waiting for frontend to be ready... (attempt $i/10)"
+            sleep 10
+          done
+
+  # Smoke Tests
+  smoke-tests:
+    name: Smoke Tests
+    needs: [deploy-backend, deploy-worker, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always() && !contains(needs.*.result, 'failure')
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against staging environment..."
+          
+          # Test backend endpoints
+          echo "Testing backend endpoints..."
+          curl -f "$BACKEND_URL/health" || exit 1
+          curl -f "$BACKEND_URL/api/agents" || exit 1
+          
+          # Test worker health
+          echo "Testing worker health..."
+          curl -f "$WORKER_URL/health" || exit 1
+          
+          # Test frontend health
+          echo "Testing frontend health..."
+          curl -f "$FRONTEND_URL/api/health" || exit 1
+          
+          echo "All smoke tests passed!"
+
+  # Notify Team
+  notify:
+    name: Notify Team
+    needs: [deploy-backend, deploy-worker, deploy-frontend, smoke-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v1
+
+      - name: Create deployment summary
+        run: |
+          if [[ "${{ needs.deploy-backend.result }}" == "success" && "${{ needs.deploy-worker.result }}" == "success" && "${{ needs.deploy-frontend.result }}" == "success" && "${{ needs.smoke-tests.result }}" == "success" ]]; then
+            gh issue create \
+              --title "✅ Staging Deployment Successful" \
+              --body "## Staging Deployment Summary
+              
+              **Status**: ✅ Successful
+              **Environment**: Staging
+              **Triggered by**: ${{ github.event_name }}
+              **Branch**: ${{ github.ref_name }}
+              **Commit**: ${{ github.sha }}
+              **Deployed at**: $(date -u)
+              
+              ### Services Deployed
+              - **Backend**: ${{ needs.deploy-backend.result == 'success' && '✅' || '❌' }} $BACKEND_URL
+              - **Worker**: ${{ needs.deploy-worker.result == 'success' && '✅' || '❌' }} $WORKER_URL
+              - **Frontend**: ${{ needs.deploy-frontend.result == 'success' && '✅' || '❌' }} $FRONTEND_URL
+              
+              ### Test Results
+              - **Quality Checks**: ✅ Passed
+              - **Smoke Tests**: ${{ needs.smoke-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+              
+              ### Next Steps
+              - [ ] Verify functionality in staging
+              - [ ] Run additional tests if needed
+              - [ ] Prepare for production deployment"
+          else
+            gh issue create \
+              --title "❌ Staging Deployment Failed" \
+              --body "## Staging Deployment Summary
+              
+              **Status**: ❌ Failed
+              **Environment**: Staging
+              **Triggered by**: ${{ github.event_name }}
+              **Branch**: ${{ github.ref_name }}
+              **Commit**: ${{ github.sha }}
+              **Failed at**: $(date -u)
+              
+              ### Services Status
+              - **Backend**: ${{ needs.deploy-backend.result == 'success' && '✅' || '❌' }} $BACKEND_URL
+              - **Worker**: ${{ needs.deploy-worker.result == 'success' && '✅' || '❌' }} $WORKER_URL
+              - **Frontend**: ${{ needs.deploy-frontend.result == 'success' && '✅' || '❌' }} $FRONTEND_URL
+              
+              ### Test Results
+              - **Quality Checks**: ✅ Passed
+              - **Smoke Tests**: ${{ needs.smoke-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+              
+              ### Investigation Required
+              - [ ] Review deployment logs
+              - [ ] Check service health
+              - [ ] Investigate failures
+              - [ ] Fix issues and redeploy"
+          fi

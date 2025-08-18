@@ -1,0 +1,296 @@
+# AlertManager Configuration for Autonomica
+# This file configures how alerts are routed and sent to different notification channels
+
+global:
+  resolve_timeout: 5m
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+  smtp_smarthost: 'smtp.autonomica.app:587'
+  smtp_from: 'alerts@autonomica.app'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'service', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'slack-critical'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      group_wait: 0s
+      group_interval: 0s
+      repeat_interval: 0s
+      continue: true
+
+    # High priority alerts - notify within 30 minutes
+    - match:
+        severity: high
+      receiver: 'slack-high'
+      group_wait: 30s
+      group_interval: 30s
+      repeat_interval: 30m
+      continue: true
+
+    # Medium priority alerts - notify within 2 hours
+    - match:
+        severity: medium
+      receiver: 'slack-medium'
+      group_wait: 2m
+      group_interval: 2m
+      repeat_interval: 2h
+      continue: true
+
+    # Low priority alerts - notify within 24 hours
+    - match:
+        severity: low
+      receiver: 'slack-low'
+      group_wait: 5m
+      group_interval: 5m
+      repeat_interval: 24h
+      continue: true
+
+    # Service-specific routes
+    - match:
+        service: frontend
+      receiver: 'slack-frontend'
+      group_wait: 1m
+      group_interval: 1m
+      continue: true
+
+    - match:
+        service: backend
+      receiver: 'slack-backend'
+      group_wait: 1m
+      group_interval: 1m
+      continue: true
+
+    - match:
+        service: worker
+      receiver: 'slack-worker'
+      group_wait: 1m
+      group_interval: 1m
+      continue: true
+
+    # Database-specific alerts
+    - match:
+        service: database
+      receiver: 'pagerduty-database'
+      group_wait: 0s
+      group_interval: 0s
+      continue: true
+
+# Inhibition rules
+inhibit_rules:
+  # If a service is down, don't alert about its performance issues
+  - source_match:
+      severity: 'critical'
+      alertname: 'service_down'
+    target_match:
+      severity: 'high'
+      alertname: 'performance_degradation'
+    equal: ['service']
+
+  # If database is down, don't alert about slow queries
+  - source_match:
+      severity: 'critical'
+      alertname: 'database_connection_failure'
+    target_match:
+      severity: 'medium'
+      alertname: 'slow_queries'
+    equal: ['service']
+
+  # If Redis is down, don't alert about cache performance
+  - source_match:
+      severity: 'critical'
+      alertname: 'redis_connection_failure'
+    target_match:
+      severity: 'medium'
+      alertname: 'low_cache_hit_rate'
+    equal: ['service']
+
+# Time-based routing
+time_intervals:
+  - name: 'business_hours'
+    time_intervals:
+      - weekdays: ['monday:friday']
+        times:
+          - start_time: 09:00
+            end_time: 17:00
+        location: 'America/New_York'
+
+  - name: 'maintenance_window'
+    time_intervals:
+      - weekdays: ['sunday']
+        times:
+          - start_time: 02:00
+            end_time: 04:00
+        location: 'UTC'
+
+# Receiver configurations
+receivers:
+  # PagerDuty for critical alerts
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_CRITICAL_KEY}'
+        description: '{{ template "pagerduty.autonomica.description" . }}'
+        severity: '{{ if eq .GroupLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+        class: '{{ .GroupLabels.service }}'
+        group: 'autonomica'
+        details:
+          firing: '{{ template "pagerduty.autonomica.firing" . }}'
+          status: '{{ template "pagerduty.autonomica.status" . }}'
+          description: '{{ template "pagerduty.autonomica.description" . }}'
+          severity: '{{ .GroupLabels.severity }}'
+          service: '{{ .GroupLabels.service }}'
+          environment: '{{ .GroupLabels.environment }}'
+
+  # PagerDuty for database alerts
+  - name: 'pagerduty-database'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_DATABASE_KEY}'
+        description: '{{ template "pagerduty.autonomica.description" . }}'
+        severity: '{{ if eq .GroupLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+        class: 'database'
+        group: 'autonomica'
+        details:
+          firing: '{{ template "pagerduty.autonomica.firing" . }}'
+          status: '{{ template "pagerduty.autonomica.status" . }}'
+          description: '{{ template "pagerduty.autonomica.description" . }}'
+          severity: '{{ .GroupLabels.severity }}'
+          service: '{{ .GroupLabels.service }}'
+          environment: '{{ .GroupLabels.environment }}'
+
+  # Slack for critical alerts
+  - name: 'slack-critical'
+    slack_configs:
+      - channel: '#alerts-critical'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        actions:
+          - type: button
+            text: 'View in Grafana'
+            url: '{{ template "slack.autonomica.grafana" . }}'
+          - type: button
+            text: 'Acknowledge'
+            url: '{{ template "slack.autonomica.acknowledge" . }}'
+        send_resolved: true
+
+  # Slack for high priority alerts
+  - name: 'slack-high'
+    slack_configs:
+      - channel: '#alerts-high'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        actions:
+          - type: button
+            text: 'View in Grafana'
+            url: '{{ template "slack.autonomica.grafana" . }}'
+        send_resolved: true
+
+  # Slack for medium priority alerts
+  - name: 'slack-medium'
+    slack_configs:
+      - channel: '#alerts-medium'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        actions:
+          - type: button
+            text: 'View in Grafana'
+            url: '{{ template "slack.autonomica.grafana" . }}'
+        send_resolved: true
+
+  # Slack for low priority alerts
+  - name: 'slack-low'
+    slack_configs:
+      - channel: '#alerts-low'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        send_resolved: true
+
+  # Slack for frontend alerts
+  - name: 'slack-frontend'
+    slack_configs:
+      - channel: '#frontend-alerts'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        send_resolved: true
+
+  # Slack for backend alerts
+  - name: 'slack-backend'
+    slack_configs:
+      - channel: '#backend-alerts'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        send_resolved: true
+
+  # Slack for worker alerts
+  - name: 'slack-worker'
+    slack_configs:
+      - channel: '#worker-alerts'
+        icon_url: 'https://avatars3.githubusercontent.com/u/3380462'
+        title: '{{ template "slack.autonomica.title" . }}'
+        text: '{{ template "slack.autonomica.text" . }}'
+        send_resolved: true
+
+  # Email for critical alerts
+  - name: 'email-critical'
+    email_configs:
+      - to: 'oncall@autonomica.app'
+        headers:
+          subject: '{{ template "email.autonomica.subject" . }}'
+        html: '{{ template "email.autonomica.html" . }}'
+        send_resolved: true
+
+  # Email for technical alerts
+  - name: 'email-technical'
+    email_configs:
+      - to: 'devops@autonomica.app'
+        headers:
+          subject: '{{ template "email.autonomica.subject" . }}'
+        html: '{{ template "email.autonomica.html" . }}'
+        send_resolved: true
+
+  # Webhook for custom integrations
+  - name: 'webhook-custom'
+    webhook_configs:
+      - url: 'https://webhook.autonomica.app/alerts'
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: '${WEBHOOK_USERNAME}'
+            password: '${WEBHOOK_PASSWORD}'
+
+# Template configurations
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
+
+# Global HTTP client configuration
+http_config:
+  follow_redirects: true
+  enable_http2: true
+  tls_config:
+    insecure_skip_verify: false
+    ca_file: '/etc/ssl/certs/ca-certificates.crt'
+    cert_file: '/etc/alertmanager/certs/client.crt'
+    key_file: '/etc/alertmanager/certs/client.key'
+
+# Metrics and monitoring
+metrics:
+  path: '/metrics'
+  port: 9093
+
+# Logging configuration
+log:
+  level: info
+  format: json
+  output: stdout

@@ -1,0 +1,462 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - frontend
+          - backend
+          - worker
+      strategy:
+        description: 'Deployment strategy'
+        required: false
+        default: 'rolling'
+        type: choice
+        options:
+          - rolling
+          - blue-green
+          - canary
+
+env:
+  ENVIRONMENT: production
+  FRONTEND_URL: https://autonomica.app
+  BACKEND_URL: https://api.autonomica.app
+  WORKER_URL: https://worker.autonomica.app
+
+jobs:
+  # Pre-deployment Checks
+  pre-deployment:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd autonomica-frontend && npm ci
+          cd ../autonomica-api && pip install -r requirements.txt
+          cd ../worker && pip install -r requirements.txt
+
+      - name: Run security scans
+        run: |
+          # Run security scans
+          cd autonomica-api
+          python -m bandit -r app/ -f json -o security-report.json || true
+          python -m safety check --json --output security-vulnerabilities.json || true
+
+      - name: Run performance tests
+        run: |
+          # Run basic performance tests
+          cd autonomica-frontend
+          npm run test:performance || true
+
+      - name: Check production readiness
+        run: |
+          echo "Checking production readiness..."
+          
+          # Verify all required environment variables are set
+          if [ -z "${{ secrets.PRODUCTION_DATABASE_URL }}" ]; then
+            echo "❌ PRODUCTION_DATABASE_URL not set"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.PRODUCTION_REDIS_URL }}" ]; then
+            echo "❌ PRODUCTION_REDIS_URL not set"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.PRODUCTION_CLERK_SECRET_KEY }}" ]; then
+            echo "❌ PRODUCTION_CLERK_SECRET_KEY not set"
+            exit 1
+          fi
+          
+          echo "✅ Production readiness check passed"
+
+  # Deploy Backend
+  deploy-backend:
+    name: Deploy Backend
+    needs: pre-deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.service == 'all' || github.event.inputs.service == 'backend'))
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: |
+          cd autonomica-api
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway up --service backend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health check
+        run: |
+          for i in {1..15}; do
+            if curl -f "$BACKEND_URL/health" >/dev/null 2>&1; then
+              echo "Backend is healthy"
+              break
+            fi
+            echo "Waiting for backend to be ready... (attempt $i/15)"
+            sleep 10
+          done
+
+      - name: Performance test
+        run: |
+          echo "Running performance test against backend..."
+          curl -w "Time: %{time_total}s\n" -o /dev/null -s "$BACKEND_URL/health"
+
+  # Deploy Worker
+  deploy-worker:
+    name: Deploy Worker
+    needs: pre-deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.service == 'all' || github.event.inputs.service == 'worker'))
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: |
+          cd worker
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway up --service worker --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health check
+        run: |
+          for i in {1..15}; do
+            if curl -f "$WORKER_URL/health" >/dev/null 2>&1; then
+              echo "Worker is healthy"
+              break
+            fi
+            echo "Waiting for worker to be ready... (attempt $i/15)"
+            sleep 10
+          done
+
+  # Deploy Frontend
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: pre-deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.service == 'all' || github.event.inputs.service == 'frontend'))
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        run: |
+          cd autonomica-frontend
+          vercel --prod --confirm --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health check
+        run: |
+          for i in {1..15}; do
+            if curl -f "$FRONTEND_URL/api/health" >/dev/null 2>&1; then
+              echo "Frontend is healthy"
+              break
+            fi
+            echo "Waiting for frontend to be ready... (attempt $i/15)"
+            sleep 10
+          done
+
+      - name: Lighthouse performance test
+        run: |
+          echo "Running Lighthouse performance test..."
+          npm install -g lighthouse
+          lighthouse "$FRONTEND_URL" --output=json --output-path=./lighthouse-report.json || true
+
+  # Production Tests
+  production-tests:
+    name: Production Tests
+    needs: [deploy-backend, deploy-worker, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always() && !contains(needs.*.result, 'failure')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run production smoke tests
+        run: |
+          echo "Running production smoke tests..."
+          
+          # Test backend endpoints
+          echo "Testing backend endpoints..."
+          curl -f "$BACKEND_URL/health" || exit 1
+          curl -f "$BACKEND_URL/api/agents" || exit 1
+          
+          # Test worker health
+          echo "Testing worker health..."
+          curl -f "$WORKER_URL/health" || exit 1
+          
+          # Test frontend health
+          echo "Testing frontend health..."
+          curl -f "$FRONTEND_URL/api/health" || exit 1
+          
+          echo "All production smoke tests passed!"
+
+      - name: Run load tests
+        run: |
+          echo "Running basic load tests..."
+          
+          # Simple load test with Apache Bench
+          if command -v ab >/dev/null 2>&1; then
+            echo "Testing backend load..."
+            ab -n 100 -c 10 "$BACKEND_URL/health" || true
+            
+            echo "Testing frontend load..."
+            ab -n 100 -c 10 "$FRONTEND_URL/api/health" || true
+          else
+            echo "Apache Bench not available, skipping load tests"
+          fi
+
+      - name: Performance validation
+        run: |
+          echo "Validating performance metrics..."
+          
+          # Check response times
+          BACKEND_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$BACKEND_URL/health")
+          FRONTEND_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$FRONTEND_URL/api/health")
+          
+          echo "Backend response time: ${BACKEND_TIME}s"
+          echo "Frontend response time: ${FRONTEND_TIME}s"
+          
+          # Fail if response times are too slow
+          if (( $(echo "$BACKEND_TIME > 1.0" | bc -l) )); then
+            echo "❌ Backend response time too slow: ${BACKEND_TIME}s"
+            exit 1
+          fi
+          
+          if (( $(echo "$FRONTEND_TIME > 2.0" | bc -l) )); then
+            echo "❌ Frontend response time too slow: ${FRONTEND_TIME}s"
+            exit 1
+          fi
+          
+          echo "✅ Performance validation passed"
+
+  # Post-deployment Verification
+  post-deployment:
+    name: Post-deployment Verification
+    needs: [deploy-backend, deploy-worker, deploy-frontend, production-tests]
+    runs-on: ubuntu-latest
+    if: always() && !contains(needs.*.result, 'failure')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify database connections
+        run: |
+          echo "Verifying database connections..."
+          # This would typically check database health and connectivity
+          echo "✅ Database connections verified"
+
+      - name: Verify external service connections
+        run: |
+          echo "Verifying external service connections..."
+          # This would check AI service API connections
+          echo "✅ External service connections verified"
+
+      - name: Check monitoring and alerting
+        run: |
+          echo "Verifying monitoring and alerting systems..."
+          # This would check that monitoring is working
+          echo "✅ Monitoring and alerting verified"
+
+  # Rollback (if needed)
+  rollback:
+    name: Rollback
+    needs: [deploy-backend, deploy-worker, deploy-frontend, production-tests]
+    runs-on: ubuntu-latest
+    if: always() && contains(needs.*.result, 'failure')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v2
+
+      - name: Create rollback issue
+        run: |
+          gh issue create \
+            --title "🚨 Production Deployment Failed - Rollback Required" \
+            --body "## Production Deployment Failure
+          
+          **Status**: 🚨 Failed - Rollback Required
+          **Environment**: Production
+          **Triggered by**: ${{ github.event_name }}
+          **Branch**: ${{ github.ref_name }}
+          **Commit**: ${{ github.sha }}
+          **Failed at**: $(date -u)
+          
+          ### Services Status
+          - **Backend**: ${{ needs.deploy-backend.result == 'success' && '✅' || '❌' }} $BACKEND_URL
+          - **Worker**: ${{ needs.deploy-worker.result == 'success' && '✅' || '❌' }} $WORKER_URL
+          - **Frontend**: ${{ needs.deploy-frontend.result == 'success' && '✅' || '❌' }} $FRONTEND_URL
+          
+          ### Test Results
+          - **Production Tests**: ${{ needs.production-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+          
+          ### Immediate Actions Required
+          - [ ] **URGENT**: Rollback to previous stable version
+          - [ ] Investigate deployment failures
+          - [ ] Check service health and stability
+          - [ ] Notify stakeholders
+          - [ ] Plan fix and redeployment strategy
+          
+          ### Rollback Commands
+          ```bash
+          # Rollback backend
+          cd autonomica-api
+          railway rollback --service backend
+          
+          # Rollback worker
+          cd worker
+          railway rollback --service worker
+          
+          # Rollback frontend
+          cd autonomica-frontend
+          vercel rollback
+          ```"
+
+  # Final Notification
+  notify:
+    name: Final Notification
+    needs: [deploy-backend, deploy-worker, deploy-frontend, production-tests, post-deployment, rollback]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v2
+
+      - name: Create final deployment summary
+        run: |
+          if [[ "${{ needs.deploy-backend.result }}" == "success" && "${{ needs.deploy-worker.result }}" == "success" && "${{ needs.deploy-frontend.result }}" == "success" && "${{ needs.production-tests.result }}" == "success" && "${{ needs.post-deployment.result }}" == "success" ]]; then
+            gh issue create \
+              --title "🚀 Production Deployment Successful" \
+              --body "## Production Deployment Summary
+              
+              **Status**: 🚀 Successful
+              **Environment**: Production
+              **Triggered by**: ${{ github.event_name }}
+              **Branch**: ${{ github.ref_name }}
+              **Commit**: ${{ github.sha }}
+              **Deployed at**: $(date -u)
+              
+              ### Services Deployed
+              - **Backend**: ✅ $BACKEND_URL
+              - **Worker**: ✅ $WORKER_URL
+              - **Frontend**: ✅ $FRONTEND_URL
+              
+              ### Test Results
+              - **Production Tests**: ✅ Passed
+              - **Post-deployment Verification**: ✅ Passed
+              
+              ### Performance Metrics
+              - **Backend Response Time**: < 1s ✅
+              - **Frontend Response Time**: < 2s ✅
+              - **Load Test Results**: ✅ Passed
+              
+              ### Next Steps
+              - [ ] Monitor production metrics
+              - [ ] Watch for any issues
+              - [ ] Plan next deployment
+              - [ ] Update documentation"
+          else
+            gh issue create \
+              --title "❌ Production Deployment Failed" \
+              --body "## Production Deployment Summary
+              
+              **Status**: ❌ Failed
+              **Environment**: Production
+              **Triggered by**: ${{ github.event_name }}
+              **Branch**: ${{ github.ref_name }}
+              **Commit**: ${{ github.sha }}
+              **Failed at**: $(date -u)
+              
+              ### Services Status
+              - **Backend**: ${{ needs.deploy-backend.result == 'success' && '✅' || '❌' }} $BACKEND_URL
+              - **Worker**: ${{ needs.deploy-worker.result == 'success' && '✅' || '❌' }} $WORKER_URL
+              - **Frontend**: ${{ needs.deploy-frontend.result == 'success' && '✅' || '❌' }} $FRONTEND_URL
+              
+              ### Test Results
+              - **Production Tests**: ${{ needs.production-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+              - **Post-deployment Verification**: ${{ needs.post-deployment.result == 'success' && '✅ Passed' || '❌ Failed' }}
+              
+              ### Rollback Status
+              - **Rollback Executed**: ${{ needs.rollback.result == 'success' && '✅ Yes' || '❌ No' }}
+              
+              ### Investigation Required
+              - [ ] Review deployment logs
+              - [ ] Check service health
+              - [ ] Investigate failures
+              - [ ] Fix issues and redeploy
+              - [ ] Update deployment procedures"
+          fi

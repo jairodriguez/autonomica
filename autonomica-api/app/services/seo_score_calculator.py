@@ -436,9 +436,21 @@ class SEOScoreCalculator:
         try:
             from urllib.parse import urlparse
             parsed = urlparse(url)
-            return parsed.netloc
+            # If netloc is empty (no scheme), fall back to path-based extraction
+            if parsed.netloc:
+                return parsed.netloc
+            else:
+                # Extract domain from path
+                path_parts = parsed.path.split('/')
+                return path_parts[0] if path_parts[0] else url
         except Exception:
-            return url.split('/')[0] if url.startswith('http') else url
+            # Fallback: extract domain from URL
+            if url.startswith('http'):
+                return url.split('/')[2] if len(url.split('/')) > 2 else url.split('/')[0]
+            else:
+                # For URLs without protocol, split by '/' and take first part
+                parts = url.split('/')
+                return parts[0] if parts[0] else url
 
     def _generate_summary(self, category_scores: Dict[ScoreCategory, CategoryScore], page_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Generate summary of SEO analysis"""

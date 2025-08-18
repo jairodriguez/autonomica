@@ -1,0 +1,251 @@
+# Prometheus Configuration for Autonomica
+# This file configures Prometheus to collect metrics from all services
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: 'autonomica'
+    environment: 'production'
+
+# Alerting Rules
+rule_files:
+  - "alerts/*.yml"
+
+# Alert Manager Configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Scrape Configuration
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Frontend Application (Next.js)
+  - job_name: 'frontend'
+    static_configs:
+      - targets: ['autonomica.app:3000']
+    metrics_path: '/api/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Backend API (FastAPI)
+  - job_name: 'backend'
+    static_configs:
+      - targets: ['api.autonomica.app:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Worker Service (Python)
+  - job_name: 'worker'
+    static_configs:
+      - targets: ['worker.autonomica.app:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Database (PostgreSQL)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['database.autonomica.app:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Redis Cache
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis.autonomica.app:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Node Exporter (System Metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  # Blackbox Exporter (External Health Checks)
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://autonomica.app
+        - https://api.autonomica.app
+        - https://worker.autonomica.app
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # cAdvisor (Container Metrics)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+  # Grafana (Optional - for self-monitoring)
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+# Storage Configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention:
+      time: 30d
+      size: 50GB
+    wal:
+      retention:
+        time: 7d
+        size: 10GB
+
+# Remote Write Configuration (for long-term storage)
+remote_write:
+  - url: "https://remote-storage.autonomica.app/api/v1/write"
+    remote_timeout: 30s
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: '.*'
+        action: keep
+
+# Remote Read Configuration
+remote_read:
+  - url: "https://remote-storage.autonomica.app/api/v1/read"
+    remote_timeout: 30s
+    read_recent: true
+
+# Recording Rules
+recording_rules:
+  - name: 'autonomica:api:response_time:p95'
+    expr: 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance))'
+    labels:
+      service: 'api'
+      quantile: '0.95'
+
+  - name: 'autonomica:api:response_time:p99'
+    expr: 'histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance))'
+    labels:
+      service: 'api'
+      quantile: '0.99'
+
+  - name: 'autonomica:api:error_rate'
+    expr: 'sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))'
+    labels:
+      service: 'api'
+
+  - name: 'autonomica:worker:queue_length'
+    expr: 'redis_list_length{job="redis",list="task_queue"}'
+    labels:
+      service: 'worker'
+
+  - name: 'autonomica:worker:processing_rate'
+    expr: 'rate(worker_tasks_processed_total[5m])'
+    labels:
+      service: 'worker'
+
+# Service Discovery (if using Kubernetes or other orchestration)
+# kubernetes_sd_configs:
+#   - role: pod
+#     api_server: https://kubernetes.default.svc
+#     tls_config:
+#       ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+#     bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+#     relabel_configs:
+#       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+#         action: keep
+#         regex: true
+#       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+#         action: replace
+#         target_label: __metrics_path__
+#         regex: (.+)
+#       - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+#         action: replace
+#         regex: ([^:]+)(?::\d+)?;(\d+)
+#         replacement: $1:$2
+#         target_label: __address__
+
+# Relabeling Rules
+relabel_configs:
+  # Add project label to all metrics
+  - source_labels: []
+    target_label: project
+    replacement: 'autonomica'
+
+  # Add environment label to all metrics
+  - source_labels: []
+    target_label: environment
+    replacement: 'production'
+
+  # Remove sensitive labels
+  - source_labels: [__meta_kubernetes_pod_label_sensitive]
+    action: labeldrop
+    regex: '.*'
+
+# Metric Relabeling
+metric_relabel_configs:
+  # Remove sensitive metrics
+  - source_labels: [__name__]
+    regex: '.*password.*|.*secret.*|.*token.*'
+    action: drop
+
+  # Add service labels based on job name
+  - source_labels: [job]
+    target_label: service
+    regex: '(.+)'
+    replacement: '${1}'

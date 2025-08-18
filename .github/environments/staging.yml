@@ -1,0 +1,9 @@
+name: staging
+url: https://staging.autonomica.app
+protection_rules:
+  required_reviewers:
+    - jairodriguez
+  wait_timer: 0
+  deployment_branch_policy:
+    protected_branches: true
+    custom_branch_policies: false

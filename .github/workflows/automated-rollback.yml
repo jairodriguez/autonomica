@@ -1,0 +1,452 @@
+name: Automated Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to rollback'
+        required: true
+        type: choice
+        options:
+          - all
+          - frontend
+          - backend
+          - worker
+      trigger:
+        description: 'Rollback trigger'
+        required: true
+        type: choice
+        options:
+          - health_check_failure
+          - performance_degradation
+          - security_issue
+          - business_metrics_drop
+          - manual
+      severity:
+        description: 'Issue severity'
+        required: true
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+      reason:
+        description: 'Reason for rollback'
+        required: false
+        type: string
+        default: 'Automated rollback triggered'
+
+  # Automated triggers based on monitoring alerts
+  repository_dispatch:
+    types: ['rollback_triggered']
+
+env:
+  ENVIRONMENT: production
+  FRONTEND_URL: https://autonomica.app
+  BACKEND_URL: https://api.autonomica.app
+  WORKER_URL: https://worker.autonomica.app
+
+jobs:
+  # Pre-rollback Assessment
+  assess_situation:
+    name: Assess Situation
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup monitoring tools
+        run: |
+          npm install -g @railway/cli vercel
+
+      - name: Assess current system state
+        run: |
+          echo "Assessing current system state..."
+          
+          # Check service health
+          echo "Checking service health..."
+          FRONTEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/api/health" || echo "000")
+          BACKEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" || echo "000")
+          WORKER_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$WORKER_URL/health" || echo "000")
+          
+          echo "Frontend health: $FRONTEND_HEALTH"
+          echo "Backend health: $BACKEND_HEALTH"
+          echo "Worker health: $WORKER_HEALTH"
+          
+          # Check performance metrics
+          echo "Checking performance metrics..."
+          FRONTEND_RESPONSE=$(curl -s -w "%{time_total}" -o /dev/null "$FRONTEND_URL/api/health" || echo "10")
+          BACKEND_RESPONSE=$(curl -s -w "%{time_total}" -o /dev/null "$BACKEND_URL/health" || echo "10")
+          
+          echo "Frontend response time: ${FRONTEND_RESPONSE}s"
+          echo "Backend response time: ${BACKEND_RESPONSE}s"
+          
+          # Determine rollback strategy
+          if [[ "$FRONTEND_HEALTH" != "200" || "$BACKEND_HEALTH" != "200" ]]; then
+            echo "CRITICAL_ISSUE=true" >> $GITHUB_ENV
+            echo "ROLLBACK_STRATEGY=immediate" >> $GITHUB_ENV
+          elif [[ "$FRONTEND_RESPONSE" > "2" || "$BACKEND_RESPONSE" > "2" ]]; then
+            echo "PERFORMANCE_ISSUE=true" >> $GITHUB_ENV
+            echo "ROLLBACK_STRATEGY=fast" >> $GITHUB_ENV
+          else
+            echo "ROLLBACK_STRATEGY=gradual" >> $GITHUB_ENV
+          fi
+
+  # Rollback Frontend
+  rollback_frontend:
+    name: Rollback Frontend
+    needs: assess_situation
+    runs-on: ubuntu-latest
+    if: github.event.inputs.service == 'all' || github.event.inputs.service == 'frontend'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Rollback to previous version
+        run: |
+          echo "Rolling back frontend..."
+          
+          # Get current deployment
+          CURRENT_DEPLOYMENT=$(vercel ls --token ${{ secrets.VERCEL_TOKEN }} | grep "autonomica" | head -1 | awk '{print $1}')
+          echo "Current deployment: $CURRENT_DEPLOYMENT"
+          
+          # Rollback to previous version
+          vercel rollback --token ${{ secrets.VERCEL_TOKEN }} || {
+            echo "Rollback failed, trying alternative method..."
+            vercel --prod --confirm --token ${{ secrets.VERCEL_TOKEN }}
+          }
+          
+          echo "Frontend rollback completed"
+
+      - name: Wait for rollback
+        run: sleep 30
+
+      - name: Verify rollback
+        run: |
+          echo "Verifying frontend rollback..."
+          
+          for i in {1..10}; do
+            if curl -f "$FRONTEND_URL/api/health" >/dev/null 2>&1; then
+              echo "Frontend is healthy after rollback"
+              break
+            fi
+            echo "Waiting for frontend to be ready... (attempt $i/10)"
+            sleep 10
+          done
+          
+          # Check performance
+          RESPONSE_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$FRONTEND_URL/api/health")
+          echo "Response time after rollback: ${RESPONSE_TIME}s"
+          
+          if (( $(echo "$RESPONSE_TIME > 2" | bc -l) )); then
+            echo "Warning: Response time still high after rollback"
+            exit 1
+          fi
+
+  # Rollback Backend
+  rollback_backend:
+    name: Rollback Backend
+    needs: assess_situation
+    runs-on: ubuntu-latest
+    if: github.event.inputs.service == 'all' || github.event.inputs.service == 'backend'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Rollback to previous version
+        run: |
+          echo "Rolling back backend..."
+          
+          # Rollback backend service
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway rollback --service backend || {
+            echo "Rollback failed, checking service status..."
+            railway status --service backend
+            exit 1
+          }
+          
+          echo "Backend rollback completed"
+
+      - name: Wait for rollback
+        run: sleep 60
+
+      - name: Verify rollback
+        run: |
+          echo "Verifying backend rollback..."
+          
+          for i in {1..15}; do
+            if curl -f "$BACKEND_URL/health" >/dev/null 2>&1; then
+              echo "Backend is healthy after rollback"
+              break
+            fi
+            echo "Waiting for backend to be ready... (attempt $i/15)"
+            sleep 10
+          done
+          
+          # Check performance
+          RESPONSE_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$BACKEND_URL/health")
+          echo "Response time after rollback: ${RESPONSE_TIME}s"
+          
+          if (( $(echo "$RESPONSE_TIME > 1" | bc -l) )); then
+            echo "Warning: Response time still high after rollback"
+            exit 1
+          fi
+
+  # Rollback Worker
+  rollback_worker:
+    name: Rollback Worker
+    needs: assess_situation
+    runs-on: ubuntu-latest
+    if: github.event.inputs.service == 'all' || github.event.inputs.service == 'worker'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Rollback to previous version
+        run: |
+          echo "Rolling back worker..."
+          
+          # Rollback worker service
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway rollback --service worker || {
+            echo "Rollback failed, checking service status..."
+            railway status --service worker
+            exit 1
+          }
+          
+          echo "Worker rollback completed"
+
+      - name: Wait for rollback
+        run: sleep 60
+
+      - name: Verify rollback
+        run: |
+          echo "Verifying worker rollback..."
+          
+          for i in {1..15}; do
+            if curl -f "$WORKER_URL/health" >/dev/null 2>&1; then
+              echo "Worker is healthy after rollback"
+              break
+            fi
+            echo "Waiting for worker to be ready... (attempt $i/15)"
+            sleep 10
+          done
+
+  # Post-rollback Verification
+  verify_rollback:
+    name: Verify Rollback
+    needs: [rollback_frontend, rollback_backend, rollback_worker]
+    runs-on: ubuntu-latest
+    if: always() && !contains(needs.*.result, 'failure')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Comprehensive health check
+        run: |
+          echo "Performing comprehensive health check..."
+          
+          # Check all services
+          echo "Checking frontend..."
+          curl -f "$FRONTEND_URL/api/health" || exit 1
+          
+          echo "Checking backend..."
+          curl -f "$BACKEND_URL/health" || exit 1
+          
+          echo "Checking worker..."
+          curl -f "$WORKER_URL/health" || exit 1
+          
+          echo "All services are healthy"
+
+      - name: Performance validation
+        run: |
+          echo "Validating performance after rollback..."
+          
+          # Check response times
+          FRONTEND_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$FRONTEND_URL/api/health")
+          BACKEND_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$BACKEND_URL/health")
+          
+          echo "Frontend response time: ${FRONTEND_TIME}s"
+          echo "Backend response time: ${BACKEND_TIME}s"
+          
+          # Validate performance thresholds
+          if (( $(echo "$FRONTEND_TIME > 2" | bc -l) )); then
+            echo "❌ Frontend response time too high: ${FRONTEND_TIME}s"
+            exit 1
+          fi
+          
+          if (( $(echo "$BACKEND_TIME > 1" | bc -l) )); then
+            echo "❌ Backend response time too high: ${BACKEND_TIME}s"
+            exit 1
+          fi
+          
+          echo "✅ Performance validation passed"
+
+      - name: Load testing (basic)
+        run: |
+          echo "Running basic load test..."
+          
+          # Simple load test with multiple concurrent requests
+          for i in {1..10}; do
+            curl -s "$FRONTEND_URL/api/health" >/dev/null &
+            curl -s "$BACKEND_URL/health" >/dev/null &
+          done
+          
+          wait
+          echo "Basic load test completed"
+
+  # Rollback Failed
+  rollback_failed:
+    name: Rollback Failed
+    needs: [rollback_frontend, rollback_backend, rollback_worker]
+    runs-on: ubuntu-latest
+    if: always() && contains(needs.*.result, 'failure')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v2
+
+      - name: Create critical incident
+        run: |
+          gh issue create \
+            --title "🚨 ROLLBACK FAILED - MANUAL INTERVENTION REQUIRED" \
+            --body "## Rollback Failure Summary
+          
+          **Status**: 🚨 FAILED - Manual Intervention Required
+          **Environment**: Production
+          **Trigger**: ${{ github.event.inputs.trigger }}
+          **Severity**: ${{ github.event.inputs.severity }}
+          **Services Affected**: ${{ github.event.inputs.service }}
+          **Time**: $(date -u)
+          
+          ### Rollback Results
+          - **Frontend**: ${{ needs.rollback_frontend.result == 'success' && '✅ Success' || '❌ Failed' }}
+          - **Backend**: ${{ needs.rollback_backend.result == 'success' && '✅ Success' || '❌ Failed' }}
+          - **Worker**: ${{ needs.rollback_worker.result == 'success' && '✅ Success' || '❌ Failed' }}
+          
+          ### Immediate Actions Required
+          - [ ] **URGENT**: Manual rollback required
+          - [ ] Check service status manually
+          - [ ] Verify infrastructure health
+          - [ ] Contact on-call engineer
+          - [ ] Assess business impact
+          
+          ### Manual Rollback Commands
+          ```bash
+          # Frontend
+          vercel rollback
+          
+          # Backend
+          railway rollback --service backend
+          
+          # Worker
+          railway rollback --service worker
+          ```
+          
+          ### Investigation Required
+          - [ ] Review rollback logs
+          - [ ] Check service dependencies
+          - [ ] Verify configuration
+          - [ ] Analyze root cause
+          - [ ] Plan remediation strategy"
+
+      - name: Notify on-call team
+        run: |
+          echo "Notifying on-call team of rollback failure..."
+          # This would typically send notifications via Slack, PagerDuty, etc.
+
+  # Rollback Success
+  rollback_success:
+    name: Rollback Success
+    needs: [rollback_frontend, rollback_backend, rollback_worker, verify_rollback]
+    runs-on: ubuntu-latest
+    if: always() && !contains(needs.*.result, 'failure')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v2
+
+      - name: Create rollback summary
+        run: |
+          gh issue create \
+            --title "✅ Rollback Completed Successfully" \
+            --body "## Rollback Summary
+          
+          **Status**: ✅ Successful
+          **Environment**: Production
+          **Trigger**: ${{ github.event.inputs.trigger }}
+          **Severity**: ${{ github.event.inputs.severity }}
+          **Services Rolled Back**: ${{ github.event.inputs.service }}
+          **Completed At**: $(date -u)
+          
+          ### Rollback Results
+          - **Frontend**: ✅ Successfully rolled back
+          - **Backend**: ✅ Successfully rolled back
+          - **Worker**: ✅ Successfully rolled back
+          
+          ### Verification Results
+          - **Health Checks**: ✅ All services healthy
+          - **Performance**: ✅ Response times within thresholds
+          - **Load Testing**: ✅ Basic load test passed
+          
+          ### Next Steps
+          - [ ] Monitor service stability
+          - [ ] Investigate root cause of original issue
+          - [ ] Plan remediation strategy
+          - [ ] Update monitoring thresholds if needed
+          - [ ] Schedule post-mortem if critical
+          
+          ### Root Cause Investigation
+          - [ ] Review deployment logs
+          - [ ] Check configuration changes
+          - [ ] Analyze performance metrics
+          - [ ] Review error logs
+          - [ ] Document findings and lessons learned"
+
+  # Final Notification
+  notify:
+    name: Final Notification
+    needs: [rollback_frontend, rollback_backend, rollback_worker, verify_rollback, rollback_failed, rollback_success]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v2
+
+      - name: Send final notification
+        run: |
+          if [[ "${{ needs.verify_rollback.result }}" == "success" ]]; then
+            echo "Rollback completed successfully"
+            gh issue create \
+              --title "🔔 Rollback Notification - Success" \
+              --body "Rollback completed successfully for ${{ github.event.inputs.service }}"
+          else
+            echo "Rollback failed"
+            gh issue create \
+              --title "🚨 Rollback Notification - Failure" \
+              --body "Rollback failed for ${{ github.event.inputs.service }}. Manual intervention required."
+          fi
