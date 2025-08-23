@@ -381,7 +381,7 @@ class AIManager:
             logger.info("No Ollama models found - attempting to install recommended model")
             
             # Try to install a basic model
-            success = await ensure_ollama_model("llama2", auto_pull=True)
+            success = await ensure_ollama_model("llama2")
             if success:
                 logger.info("Successfully installed llama2 model")
             else:

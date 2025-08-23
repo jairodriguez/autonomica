@@ -39,7 +39,7 @@ class ContentRepurposingService:
     
     def __init__(self):
         self.max_retries = 3
-        self.quality_threshold = 0.8
+        self.quality_threshold = 0.6  # Lowered from 0.8 to be more realistic
         
     async def repurpose_content(
         self,
@@ -597,17 +597,20 @@ class ContentRepurposingService:
     
     def _improve_readability(self, content: str) -> str:
         """Improve content readability."""
-        # Break long sentences
+        # Break only very long sentences (more than 150 characters)
         sentences = content.split('. ')
         improved_sentences = []
         
         for sentence in sentences:
-            if len(sentence) > 100:
-                # Break into shorter sentences
+            if len(sentence) > 150:  # Increased threshold from 100 to 150
+                # Break into shorter sentences more intelligently
                 words = sentence.split()
-                mid_point = len(words) // 2
-                improved_sentences.append('. '.join(words[:mid_point]) + '.')
-                improved_sentences.append('. '.join(words[mid_point:]) + '.')
+                if len(words) > 20:  # Only break if sentence has more than 20 words
+                    mid_point = len(words) // 2
+                    improved_sentences.append('. '.join(words[:mid_point]) + '.')
+                    improved_sentences.append('. '.join(words[mid_point:]) + '.')
+                else:
+                    improved_sentences.append(sentence)
             else:
                 improved_sentences.append(sentence)
         
@@ -620,7 +623,8 @@ class ContentRepurposingService:
         
         if "professional" in brand_voice.lower():
             # Remove casual language
-            content = re.sub(r'\b(hey|hi there|awesome|cool)\b', 'Hello', content, flags=re.IGNORECASE)
+            content = re.sub(r'\b(hey|hi there)\b', 'Hello', content, flags=re.IGNORECASE)
+            # Keep positive words like 'awesome' and 'cool' as they can be professional
         elif "casual" in brand_voice.lower():
             # Add casual language
             content = content.replace("Hello", "Hey there!")

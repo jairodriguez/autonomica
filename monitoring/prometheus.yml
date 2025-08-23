@@ -249,3 +249,4 @@ metric_relabel_configs:
     target_label: service
     regex: '(.+)'
     replacement: '${1}'
+

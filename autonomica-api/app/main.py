@@ -22,6 +22,41 @@ from app.core.config import settings, validate_settings
 from app.auth.clerk_middleware import get_current_user, ClerkUser
 from app.owl.workforce import Workforce
 from loguru import logger
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.endpoints import analytics_router, auth_router
+from app.database import engine
+from app.models import schema
+
+# Create database tables
+schema.Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="Autonomica API",
+    description="AI-powered social media management and analytics platform",
+    version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://autonomica.vercel.app"],  # Add your frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(analytics_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Autonomica API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "autonomica-api"}
 
 # Initial settings validation
 try:
@@ -114,7 +149,7 @@ async def root(request: Request):
 @app.get("/api/health")
 async def health():
     """Health check endpoint"""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    return {"status": "healthy", "service": "autonomica-api"}
 
 @app.get("/api/agents")
 async def get_agents(request: Request, current_user: ClerkUser = Depends(get_current_user)):
@@ -1270,6 +1305,18 @@ async def get_best_parameters(
             "success": False,
             "error": str(e)
         }
+
+@app.get("/ollama-config-dashboard", response_class=HTMLResponse)
+async def ollama_config_dashboard():
+    """Serve the Ollama configuration management dashboard"""
+    try:
+        with open("app/static/ollama_config_dashboard.html", "r") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Configuration dashboard not found")
+    except Exception as e:
+        logger.error(f"Failed to serve configuration dashboard: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load configuration dashboard")
 
 # --- Main execution ---
 

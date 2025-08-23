@@ -48,3 +48,4 @@ module.exports = {
 // 2. Replace placeholder values with actual staging environment values
 // 3. Ensure .env.staging is in .gitignore
 // 4. Use in deployment scripts and CI/CD pipelines
+

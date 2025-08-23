@@ -398,6 +398,10 @@ class OllamaManager:
             logger.error(f"Failed to get system status: {e}")
             return {"error": str(e)}
 
+    async def is_running(self) -> bool:
+        """Check if Ollama service is running and accessible."""
+        return await self._check_service_health()
+
     async def _check_service_health(self) -> bool:
         """Check if the Ollama service is running and healthy."""
         try:

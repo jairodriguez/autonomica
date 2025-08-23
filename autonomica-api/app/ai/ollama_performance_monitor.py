@@ -54,14 +54,14 @@ class OllamaSystemMetrics:
     cpu_usage_percent: float
     memory_usage_percent: float
     memory_available_gb: float
-    gpu_usage_percent: Optional[float] = None
-    gpu_memory_used_gb: Optional[float] = None
-    gpu_memory_total_gb: Optional[float] = None
     disk_usage_percent: float
     network_io_mbps: float
     active_connections: int
     models_loaded: int
     total_models: int
+    gpu_usage_percent: Optional[float] = None
+    gpu_memory_used_gb: Optional[float] = None
+    gpu_memory_total_gb: Optional[float] = None
 
 @dataclass
 class OllamaPerformanceAlert:

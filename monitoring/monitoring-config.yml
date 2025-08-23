@@ -374,3 +374,4 @@ custom_metrics:
     type: 'gauge'
     description: 'Cost per API request'
     labels: ['service', 'endpoint', 'user_tier']
+

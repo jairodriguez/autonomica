@@ -1,0 +1,129 @@
+{
+  "report_id": "report_ReportType.MONTHLY_20250719_20250818",
+  "report_type": "monthly",
+  "start_date": "2025-07-19 21:00:21.249565",
+  "end_date": "2025-08-18 21:00:21.249565",
+  "generated_at": "2025-08-18 21:00:21.249617",
+  "metrics_summary": {
+    "total_content": 2,
+    "average_performance": 0.328,
+    "top_performers": [
+      {
+        "content_id": "content_001",
+        "title": "Unknown",
+        "content_type": "blog_post",
+        "platform": "website",
+        "total_views": 150,
+        "total_engagement": 25,
+        "conversion_rate": 0.03333333333333333,
+        "quality_score": 0.85,
+        "performance_score": 0.55,
+        "created_at": "2025-08-18 21:00:21.248216",
+        "published_at": null,
+        "last_updated": "2025-08-18 21:00:21.248250"
+      },
+      {
+        "content_id": "content_002",
+        "title": "Unknown",
+        "content_type": "blog_post",
+        "platform": "website",
+        "total_views": 300,
+        "total_engagement": 45,
+        "conversion_rate": 0.0,
+        "quality_score": 0.0,
+        "performance_score": 0.105,
+        "created_at": "2025-08-18 21:00:21.248256",
+        "published_at": null,
+        "last_updated": "2025-08-18 21:00:21.248261"
+      }
+    ],
+    "platform_breakdown": {
+      "website": {
+        "count": 2,
+        "avg_performance": 0.3275
+      }
+    },
+    "content_type_breakdown": {
+      "blog_post": {
+        "count": 2,
+        "avg_performance": 0.3275
+      }
+    },
+    "date_range": {
+      "from": "2025-07-19T21:00:21.249565",
+      "to": "2025-08-18T21:00:21.249565"
+    }
+  },
+  "top_performing_content": [
+    {
+      "content_id": "content_001",
+      "title": "Unknown",
+      "content_type": "blog_post",
+      "platform": "website",
+      "total_views": 150,
+      "total_engagement": 25,
+      "conversion_rate": 0.03333333333333333,
+      "quality_score": 0.85,
+      "performance_score": 0.55,
+      "created_at": "2025-08-18 21:00:21.248216",
+      "published_at": null,
+      "last_updated": "2025-08-18 21:00:21.248250"
+    },
+    {
+      "content_id": "content_002",
+      "title": "Unknown",
+      "content_type": "blog_post",
+      "platform": "website",
+      "total_views": 300,
+      "total_engagement": 45,
+      "conversion_rate": 0.0,
+      "quality_score": 0.0,
+      "performance_score": 0.105,
+      "created_at": "2025-08-18 21:00:21.248256",
+      "published_at": null,
+      "last_updated": "2025-08-18 21:00:21.248261"
+    }
+  ],
+  "platform_breakdown": {
+    "website": {
+      "total_content": 2,
+      "total_views": 450,
+      "total_engagement": 70,
+      "avg_performance": 0.3275,
+      "best_content_type": "blog_post"
+    }
+  },
+  "content_type_analysis": {
+    "blog_post": {
+      "total_content": 2,
+      "total_views": 450,
+      "total_engagement": 70,
+      "avg_performance": 0.3275,
+      "best_platform": "website",
+      "engagement_rate": 0.15555555555555556,
+      "conversion_rate": 0.0
+    }
+  },
+  "trends": {
+    "performance_trend": [],
+    "engagement_trend": [
+      {
+        "date": "2025-08-18",
+        "value": 130
+      }
+    ],
+    "content_volume_trend": [
+      {
+        "date": "2025-08-18",
+        "value": 6
+      }
+    ],
+    "platform_trend": [
+      {
+        "date": "2025-08-18",
+        "value": 2
+      }
+    ]
+  },
+  "recommendations": []
+}

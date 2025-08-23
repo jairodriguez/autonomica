@@ -1,0 +1,17 @@
+{
+  "name": "conversation",
+  "description": "Optimized for natural conversation",
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "top_k": 40,
+  "repeat_penalty": 1.1,
+  "seed": null,
+  "num_ctx": null,
+  "num_gpu": null,
+  "num_thread": null,
+  "stop": null,
+  "created_at": "2025-08-20 21:13:12.318084",
+  "updated_at": "2025-08-20 21:13:12.321175",
+  "tags": [],
+  "usage_count": 0
+}

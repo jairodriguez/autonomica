@@ -1,412 +1,371 @@
 """
-Redis Service Module for Autonomica
-
-Supports both traditional Redis and Vercel KV (Redis-compatible)
-Implements user-scoped caching and task queue functionality with Clerk authentication.
+Redis Service
+Handles Redis operations for caching, queues, and session management
 """
 
 import json
-import os
-from typing import Any, Dict, List, Optional, Union
-from datetime import datetime, timedelta
-import asyncio
 import logging
-
-try:
-    import redis.asyncio as redis
-    from redis.asyncio import Redis
-except ImportError:
-    # Fallback if redis package not available
-    redis = None
-    Redis = None
-
-import httpx
+from typing import Any, Optional, List, Dict, Union
+import redis.asyncio as redis
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
-
-class CacheKey:
-    """Helper class for generating consistent cache keys with user scoping."""
+class RedisService:
+    """Service for Redis operations"""
     
-    @staticmethod
-    def user_scoped(user_id: str, key: str) -> str:
-        """Generate user-scoped cache key."""
-        return f"user:{user_id}:{key}"
+    def __init__(self, redis_url: str = None):
+        """Initialize Redis connection"""
+        self.redis_url = redis_url or "redis://localhost:6379"
+        self.redis_client = None
+        self._connect()
     
-    @staticmethod
-    def agent_response(user_id: str, agent_type: str) -> str:
-        """Generate cache key for agent responses."""
-        return f"user:{user_id}:agent:{agent_type}:last_response"
-    
-    @staticmethod
-    def agent_state(user_id: str, agent_id: str) -> str:
-        """Generate cache key for agent state."""
-        return f"user:{user_id}:agent_state:{agent_id}"
-    
-    @staticmethod
-    def chat_session(user_id: str, session_id: str) -> str:
-        """Generate cache key for chat sessions."""
-        return f"user:{user_id}:chat:{session_id}"
-    
-    @staticmethod
-    def task_queue(user_id: str) -> str:
-        """Generate cache key for user task queue."""
-        return f"user:{user_id}:tasks"
-    
-    @staticmethod
-    def rate_limit(user_id: str) -> str:
-        """Generate cache key for rate limiting."""
-        return f"user:{user_id}:rate_limit"
-
-
-class VercelKVClient:
-    """Vercel KV client using REST API."""
-    
-    def __init__(self, url: str, token: str):
-        self.base_url = url.rstrip('/')
-        self.token = token
-        self.client = httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=30.0
-        )
-    
-    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
-        """Set a key-value pair with optional expiration."""
+    def _connect(self):
+        """Establish Redis connection"""
         try:
-            data = {"key": key, "value": value}
-            if ex:
-                data["ex"] = ex
-            
-            response = await self.client.post(f"{self.base_url}/set", json=data)
-            response.raise_for_status()
-            return True
+            self.redis_client = redis.from_url(
+                self.redis_url,
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True
+            )
+            logger.info("Redis connection established")
         except Exception as e:
-            logger.error(f"Vercel KV set error: {e}")
+            logger.error(f"Failed to connect to Redis: {e}")
+            self.redis_client = None
+    
+    async def is_connected(self) -> bool:
+        """Check if Redis is connected"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            await self.redis_client.ping()
+            return True
+        except Exception:
             return False
     
     async def get(self, key: str) -> Optional[str]:
-        """Get a value by key."""
+        """Get value by key"""
         try:
-            response = await self.client.get(f"{self.base_url}/get/{key}")
-            if response.status_code == 404:
+            if not await self.is_connected():
                 return None
-            response.raise_for_status()
-            return response.json().get("result")
+            return await self.redis_client.get(key)
         except Exception as e:
-            logger.error(f"Vercel KV get error: {e}")
+            logger.error(f"Failed to get key {key}: {e}")
             return None
+    
+    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+        """Set key-value pair with optional expiration"""
+        try:
+            if not await self.is_connected():
+                return False
+            
+            if ex:
+                return await self.redis_client.setex(key, ex, value)
+            else:
+                return await self.redis_client.set(key, value)
+        except Exception as e:
+            logger.error(f"Failed to set key {key}: {e}")
+            return False
     
     async def delete(self, key: str) -> bool:
-        """Delete a key."""
+        """Delete key"""
         try:
-            response = await self.client.delete(f"{self.base_url}/del/{key}")
-            response.raise_for_status()
-            return True
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.delete(key)
+            return result > 0
         except Exception as e:
-            logger.error(f"Vercel KV delete error: {e}")
+            logger.error(f"Failed to delete key {key}: {e}")
             return False
     
-    async def lpush(self, key: str, value: str) -> bool:
-        """Push to left of list."""
+    async def exists(self, key: str) -> bool:
+        """Check if key exists"""
         try:
-            data = {"key": key, "value": value}
-            response = await self.client.post(f"{self.base_url}/lpush", json=data)
-            response.raise_for_status()
-            return True
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.exists(key)
+            return result > 0
         except Exception as e:
-            logger.error(f"Vercel KV lpush error: {e}")
+            logger.error(f"Failed to check existence of key {key}: {e}")
             return False
+    
+    async def expire(self, key: str, seconds: int) -> bool:
+        """Set expiration for key"""
+        try:
+            if not await self.is_connected():
+                return False
+            return await self.redis_client.expire(key, seconds)
+        except Exception as e:
+            logger.error(f"Failed to set expiration for key {key}: {e}")
+            return False
+    
+    async def ttl(self, key: str) -> int:
+        """Get time to live for key"""
+        try:
+            if not await self.is_connected():
+                return -2
+            return await self.redis_client.ttl(key)
+        except Exception as e:
+            logger.error(f"Failed to get TTL for key {key}: {e}")
+            return -2
+    
+    # List operations
+    async def lpush(self, key: str, value: str) -> bool:
+        """Push value to left of list"""
+        try:
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.lpush(key, value)
+            return result > 0
+        except Exception as e:
+            logger.error(f"Failed to lpush to {key}: {e}")
+            return False
+    
+    async def rpush(self, key: str, value: str) -> bool:
+        """Push value to right of list"""
+        try:
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.rpush(key, value)
+            return result > 0
+        except Exception as e:
+            logger.error(f"Failed to rpush to {key}: {e}")
+            return False
+    
+    async def lpop(self, key: str) -> Optional[str]:
+        """Pop value from left of list"""
+        try:
+            if not await self.is_connected():
+                return None
+            return await self.redis_client.lpop(key)
+        except Exception as e:
+            logger.error(f"Failed to lpop from {key}: {e}")
+            return None
     
     async def rpop(self, key: str) -> Optional[str]:
-        """Pop from right of list."""
+        """Pop value from right of list"""
         try:
-            response = await self.client.post(f"{self.base_url}/rpop", json={"key": key})
-            if response.status_code == 404:
+            if not await self.is_connected():
                 return None
-            response.raise_for_status()
-            return response.json().get("result")
+            return await self.redis_client.rpop(key)
         except Exception as e:
-            logger.error(f"Vercel KV rpop error: {e}")
+            logger.error(f"Failed to rpop from {key}: {e}")
             return None
     
-    async def close(self):
-        """Close the HTTP client."""
-        await self.client.aclose()
-
-
-class RedisService:
-    """
-    Redis service that supports both traditional Redis and Vercel KV.
-    
-    Automatically detects which backend to use based on environment variables.
-    Provides user-scoped caching and task queue functionality.
-    """
-    
-    def __init__(self):
-        self.client: Optional[Any] = None  # Union[Redis, VercelKVClient] when properly typed
-        self.is_vercel_kv = False
-        self._initialized = False
-    
-    async def initialize(self):
-        """Initialize the Redis client based on configuration."""
-        if self._initialized:
-            return
-        
-        # Check if Vercel KV configuration is available
-        kv_url = os.getenv("KV_REST_API_URL")
-        kv_token = os.getenv("KV_REST_API_TOKEN")
-        
-        if kv_url and kv_token:
-            # Use Vercel KV
-            logger.info("Initializing Vercel KV client")
-            self.client = VercelKVClient(kv_url, kv_token)
-            self.is_vercel_kv = True
-        else:
-            # Use traditional Redis
-            if redis is None:
-                raise RuntimeError("Redis package not available. Please install redis package or configure Vercel KV.")
-            logger.info("Initializing traditional Redis client")
-            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-            self.client = redis.from_url(redis_url, decode_responses=True)
-            self.is_vercel_kv = False
-        
-        self._initialized = True
-        logger.info(f"Redis service initialized with {'Vercel KV' if self.is_vercel_kv else 'traditional Redis'}")
-    
-    async def close(self):
-        """Close the Redis client."""
-        if self.client:
-            if self.is_vercel_kv:
-                await self.client.close()
-            else:
-                await self.client.close()
-            self._initialized = False
-    
-    # Cache Operations
-    
-    async def cache_set(self, key: str, value: Any, ttl: int = 3600) -> bool:
-        """Set a cache value with TTL (time to live in seconds)."""
-        await self.initialize()
-        if not self.client:
-            logger.error("Redis client not initialized")
-            return False
-            
+    async def lrange(self, key: str, start: int, stop: int) -> List[str]:
+        """Get range of values from list"""
         try:
-            json_value = json.dumps(value) if not isinstance(value, str) else value
-            
-            if self.is_vercel_kv:
-                return await self.client.set(key, json_value, ex=ttl)
-            else:
-                return await self.client.set(key, json_value, ex=ttl)
+            if not await self.is_connected():
+                return []
+            return await self.redis_client.lrange(key, start, stop)
         except Exception as e:
-            logger.error(f"Cache set error: {e}")
+            logger.error(f"Failed to lrange from {key}: {e}")
+            return []
+    
+    async def llen(self, key: str) -> int:
+        """Get length of list"""
+        try:
+            if not await self.is_connected():
+                return 0
+            return await self.redis_client.llen(key)
+        except Exception as e:
+            logger.error(f"Failed to get length of list {key}: {e}")
+            return 0
+    
+    # Sorted set operations
+    async def zadd(self, key: str, score: float, member: str) -> bool:
+        """Add member to sorted set with score"""
+        try:
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.zadd(key, {member: score})
+            return result > 0
+        except Exception as e:
+            logger.error(f"Failed to zadd to {key}: {e}")
             return False
     
-    async def cache_get(self, key: str) -> Optional[Any]:
-        """Get a cache value."""
-        await self.initialize()
+    async def zrem(self, key: str, member: str) -> bool:
+        """Remove member from sorted set"""
         try:
-            if self.is_vercel_kv:
-                value = await self.client.get(key)
-            else:
-                value = await self.client.get(key)
-            
-            if value is None:
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.zrem(key, member)
+            return result > 0
+        except Exception as e:
+            logger.error(f"Failed to zrem from {key}: {e}")
+            return False
+    
+    async def zrange(self, key: str, start: int, stop: int, withscores: bool = False) -> Union[List[str], List[tuple]]:
+        """Get range of members from sorted set"""
+        try:
+            if not await self.is_connected():
+                return []
+            return await self.redis_client.zrange(key, start, stop, withscores=withscores)
+        except Exception as e:
+            logger.error(f"Failed to zrange from {key}: {e}")
+            return []
+    
+    async def zrangebyscore(self, key: str, min_score: float, max_score: float) -> List[str]:
+        """Get members with scores in range"""
+        try:
+            if not await self.is_connected():
+                return []
+            return await self.redis_client.zrangebyscore(key, min_score, max_score)
+        except Exception as e:
+            logger.error(f"Failed to zrangebyscore from {key}: {e}")
+            return []
+    
+    async def zcard(self, key: str) -> int:
+        """Get cardinality of sorted set"""
+        try:
+            if not await self.is_connected():
+                return 0
+            return await self.redis_client.zcard(key)
+        except Exception as e:
+            logger.error(f"Failed to get cardinality of sorted set {key}: {e}")
+            return 0
+    
+    # Hash operations
+    async def hset(self, key: str, field: str, value: str) -> bool:
+        """Set field in hash"""
+        try:
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.hset(key, field, value)
+            return result >= 0
+        except Exception as e:
+            logger.error(f"Failed to hset {field} in {key}: {e}")
+            return False
+    
+    async def hget(self, key: str, field: str) -> Optional[str]:
+        """Get field from hash"""
+        try:
+            if not await self.is_connected():
                 return None
-            
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return value
+            return await self.redis_client.hget(key, field)
         except Exception as e:
-            logger.error(f"Cache get error: {e}")
+            logger.error(f"Failed to hget {field} from {key}: {e}")
             return None
     
-    async def cache_delete(self, key: str) -> bool:
-        """Delete a cache key."""
-        await self.initialize()
+    async def hgetall(self, key: str) -> Dict[str, str]:
+        """Get all fields from hash"""
         try:
-            if self.is_vercel_kv:
-                return await self.client.delete(key)
-            else:
-                return bool(await self.client.delete(key))
+            if not await self.is_connected():
+                return {}
+            return await self.redis_client.hgetall(key)
         except Exception as e:
-            logger.error(f"Cache delete error: {e}")
+            logger.error(f"Failed to hgetall from {key}: {e}")
+            return {}
+    
+    async def hdel(self, key: str, field: str) -> bool:
+        """Delete field from hash"""
+        try:
+            if not await self.is_connected():
+                return False
+            result = await self.redis_client.hdel(key, field)
+            return result > 0
+        except Exception as e:
+            logger.error(f"Failed to hdel {field} from {key}: {e}")
             return False
     
-    # User-Scoped Cache Operations
-    
-    async def cache_user_data(self, user_id: str, key: str, data: Any, ttl: int = 3600) -> bool:
-        """Cache data for a specific user."""
-        cache_key = CacheKey.user_scoped(user_id, key)
-        return await self.cache_set(cache_key, data, ttl)
-    
-    async def get_user_data(self, user_id: str, key: str) -> Optional[Any]:
-        """Get cached data for a specific user."""
-        cache_key = CacheKey.user_scoped(user_id, key)
-        return await self.cache_get(cache_key)
-    
-    async def delete_user_data(self, user_id: str, key: str) -> bool:
-        """Delete cached data for a specific user."""
-        cache_key = CacheKey.user_scoped(user_id, key)
-        return await self.cache_delete(cache_key)
-    
-    # Agent State Management
-    
-    async def cache_agent_response(self, user_id: str, agent_type: str, response: Dict[str, Any], ttl: int = 1800) -> bool:
-        """Cache the last agent response for a user."""
-        cache_key = CacheKey.agent_response(user_id, agent_type)
-        cached_data = {
-            "response": response,
-            "timestamp": datetime.utcnow().isoformat(),
-            "agent_type": agent_type
-        }
-        return await self.cache_set(cache_key, cached_data, ttl)
-    
-    async def get_agent_response(self, user_id: str, agent_type: str) -> Optional[Dict[str, Any]]:
-        """Get the last cached agent response for a user."""
-        cache_key = CacheKey.agent_response(user_id, agent_type)
-        return await self.cache_get(cache_key)
-    
-    async def cache_agent_state(self, user_id: str, agent_id: str, state: Dict[str, Any], ttl: int = 7200) -> bool:
-        """Cache agent state for persistence."""
-        cache_key = CacheKey.agent_state(user_id, agent_id)
-        state_data = {
-            "state": state,
-            "last_updated": datetime.utcnow().isoformat(),
-            "agent_id": agent_id
-        }
-        return await self.cache_set(cache_key, state_data, ttl)
-    
-    async def get_agent_state(self, user_id: str, agent_id: str) -> Optional[Dict[str, Any]]:
-        """Get cached agent state."""
-        cache_key = CacheKey.agent_state(user_id, agent_id)
-        cached = await self.cache_get(cache_key)
-        return cached.get("state") if cached else None
-    
-    # Chat Session Management
-    
-    async def cache_chat_session(self, user_id: str, session_id: str, messages: List[Dict], ttl: int = 3600) -> bool:
-        """Cache chat session messages."""
-        cache_key = CacheKey.chat_session(user_id, session_id)
-        session_data = {
-            "messages": messages,
-            "last_updated": datetime.utcnow().isoformat(),
-            "session_id": session_id
-        }
-        return await self.cache_set(cache_key, session_data, ttl)
-    
-    async def get_chat_session(self, user_id: str, session_id: str) -> Optional[List[Dict]]:
-        """Get cached chat session messages."""
-        cache_key = CacheKey.chat_session(user_id, session_id)
-        cached = await self.cache_get(cache_key)
-        return cached.get("messages") if cached else None
-    
-    # Task Queue Operations
-    
-    async def enqueue_task(self, user_id: str, task_data: Dict[str, Any]) -> bool:
-        """Add a task to the user's task queue."""
-        await self.initialize()
+    # JSON operations
+    async def set_json(self, key: str, data: Dict[str, Any], ex: Optional[int] = None) -> bool:
+        """Set JSON data"""
         try:
-            queue_key = CacheKey.task_queue(user_id)
-            task_with_metadata = {
-                "task": task_data,
-                "enqueued_at": datetime.utcnow().isoformat(),
-                "user_id": user_id
-            }
-            json_task = json.dumps(task_with_metadata)
-            
-            if self.is_vercel_kv:
-                return await self.client.lpush(queue_key, json_task)
-            else:
-                return bool(await self.client.lpush(queue_key, json_task))
+            json_data = json.dumps(data)
+            return await self.set(key, json_data, ex)
         except Exception as e:
-            logger.error(f"Task enqueue error: {e}")
+            logger.error(f"Failed to set JSON for key {key}: {e}")
             return False
     
-    async def dequeue_task(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get the next task from the user's task queue."""
-        await self.initialize()
+    async def get_json(self, key: str) -> Optional[Dict[str, Any]]:
+        """Get JSON data"""
         try:
-            queue_key = CacheKey.task_queue(user_id)
-            
-            if self.is_vercel_kv:
-                task_json = await self.client.rpop(queue_key)
-            else:
-                task_json = await self.client.rpop(queue_key)
-            
-            if task_json:
-                return json.loads(task_json)
+            data = await self.get(key)
+            if data:
+                return json.loads(data)
             return None
         except Exception as e:
-            logger.error(f"Task dequeue error: {e}")
+            logger.error(f"Failed to get JSON for key {key}: {e}")
             return None
     
-    # Rate Limiting
-    
-    async def check_rate_limit(self, user_id: str, limit: int = 60, window: int = 60) -> bool:
-        """Check if user is within rate limit."""
-        await self.initialize()
+    # Queue operations
+    async def enqueue(self, queue_name: str, data: Dict[str, Any]) -> bool:
+        """Add item to queue"""
         try:
-            rate_key = CacheKey.rate_limit(user_id)
-            
-            if self.is_vercel_kv:
-                current = await self.client.get(rate_key)
-                current_count = int(current) if current else 0
-                
-                if current_count >= limit:
-                    return False
-                
-                new_count = current_count + 1
-                await self.client.set(rate_key, str(new_count), ex=window)
-                return True
-            else:
-                # Use Redis INCR with EXPIRE for atomic rate limiting
-                current = await self.client.incr(rate_key)
-                if current == 1:
-                    await self.client.expire(rate_key, window)
-                
-                return current <= limit
+            json_data = json.dumps(data)
+            return await self.lpush(queue_name, json_data)
         except Exception as e:
-            logger.error(f"Rate limit check error: {e}")
-            return True  # Allow on error to avoid blocking users
+            logger.error(f"Failed to enqueue to {queue_name}: {e}")
+            return False
     
-    # Health Check
+    async def dequeue(self, queue_name: str) -> Optional[Dict[str, Any]]:
+        """Remove and return item from queue"""
+        try:
+            data = await self.rpop(queue_name)
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to dequeue from {queue_name}: {e}")
+            return None
     
+    async def peek_queue(self, queue_name: str, count: int = 1) -> List[Dict[str, Any]]:
+        """Peek at items in queue without removing them"""
+        try:
+            items = await self.lrange(queue_name, 0, count - 1)
+            return [json.loads(item) for item in items]
+        except Exception as e:
+            logger.error(f"Failed to peek queue {queue_name}: {e}")
+            return []
+    
+    async def get_queue_length(self, queue_name: str) -> int:
+        """Get length of queue"""
+        return await self.llen(queue_name)
+    
+    # Health check
     async def health_check(self) -> Dict[str, Any]:
-        """Check Redis service health."""
-        await self.initialize()
+        """Check Redis health"""
         try:
-            test_key = "health_check"
-            test_value = "ok"
-            
-            # Test write
-            write_success = await self.cache_set(test_key, test_value, 60)
-            if not write_success:
-                return {"status": "unhealthy", "error": "Write failed"}
-            
-            # Test read
-            read_value = await self.cache_get(test_key)
-            if read_value != test_value:
-                return {"status": "unhealthy", "error": "Read failed"}
-            
-            # Clean up
-            await self.cache_delete(test_key)
-            
-            return {
-                "status": "healthy",
-                "backend": "Vercel KV" if self.is_vercel_kv else "Redis",
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            is_connected = await self.is_connected()
+            if is_connected:
+                info = await self.redis_client.info()
+                return {
+                    "status": "healthy",
+                    "connected": True,
+                    "version": info.get("redis_version", "unknown"),
+                    "used_memory": info.get("used_memory_human", "unknown"),
+                    "connected_clients": info.get("connected_clients", 0)
+                }
+            else:
+                return {
+                    "status": "unhealthy",
+                    "connected": False,
+                    "error": "Cannot connect to Redis"
+                }
         except Exception as e:
-            return {"status": "unhealthy", "error": str(e)}
-
-
-# Global Redis service instance
-redis_service = RedisService()
-
-
-# Dependency for FastAPI
-async def get_redis_service() -> RedisService:
-    """FastAPI dependency to get Redis service."""
-    return redis_service 
+            return {
+                "status": "unhealthy",
+                "connected": False,
+                "error": str(e)
+            }
+    
+    async def close(self):
+        """Close Redis connection"""
+        try:
+            if self.redis_client:
+                await self.redis_client.close()
+                logger.info("Redis connection closed")
+        except Exception as e:
+            logger.error(f"Failed to close Redis connection: {e}")
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.close() 

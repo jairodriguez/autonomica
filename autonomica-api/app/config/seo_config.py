@@ -38,9 +38,11 @@ class SEOSettings(BaseSettings):
     MAX_COMPETITORS_PER_DOMAIN: int = 20
     KEYWORD_CLUSTERING_THRESHOLD: float = 0.7  # Similarity threshold
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False,
+        "extra": "ignore"  # Ignore extra environment variables
+    }
 
 # Create global settings instance
 seo_settings = SEOSettings()

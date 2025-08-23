@@ -358,3 +358,4 @@ esac
 
 # Run main function
 main "$@"
+

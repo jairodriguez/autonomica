@@ -324,3 +324,4 @@ The dashboard is configured to work with the following API endpoints:
 - [ ] Verify responsive design on mobile devices
 
 The SEO Dashboard provides a comprehensive, user-friendly interface for all your SEO research and analysis needs. With its modern design, responsive layout, and powerful functionality, it's the perfect tool for SEO professionals and marketers looking to optimize their web presence.
+

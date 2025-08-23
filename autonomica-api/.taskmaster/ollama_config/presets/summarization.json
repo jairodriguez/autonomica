@@ -1,0 +1,17 @@
+{
+  "name": "summarization",
+  "description": "Optimized for text summarization",
+  "temperature": 0.2,
+  "top_p": 0.8,
+  "top_k": 15,
+  "repeat_penalty": 1.25,
+  "seed": null,
+  "num_ctx": null,
+  "num_gpu": null,
+  "num_thread": null,
+  "stop": null,
+  "created_at": "2025-08-20 21:13:12.318085",
+  "updated_at": "2025-08-20 21:13:12.321761",
+  "tags": [],
+  "usage_count": 0
+}

@@ -1,0 +1,105 @@
+{
+  "report_id": "report_ReportType.WEEKLY_20250811_20250818",
+  "report_type": "weekly",
+  "start_date": "2025-08-11 20:00:21.680056",
+  "end_date": "2025-08-18 20:00:21.680056",
+  "generated_at": "2025-08-18 20:00:21.680111",
+  "metrics_summary": {
+    "total_content": 1,
+    "average_performance": 0.02,
+    "top_performers": [
+      {
+        "content_id": "test_content_001",
+        "title": "Unknown",
+        "content_type": "blog_post",
+        "platform": "website",
+        "total_views": 100,
+        "total_engagement": 0,
+        "conversion_rate": 0.0,
+        "quality_score": 0.0,
+        "performance_score": 0.02,
+        "created_at": "2025-08-18 20:00:21.679724",
+        "published_at": null,
+        "last_updated": "2025-08-18 20:00:21.679728"
+      }
+    ],
+    "platform_breakdown": {
+      "website": {
+        "count": 1,
+        "avg_performance": 0.02
+      }
+    },
+    "content_type_breakdown": {
+      "blog_post": {
+        "count": 1,
+        "avg_performance": 0.02
+      }
+    },
+    "date_range": {
+      "from": "2025-08-11T20:00:21.680056",
+      "to": "2025-08-18T20:00:21.680056"
+    }
+  },
+  "top_performing_content": [
+    {
+      "content_id": "test_content_001",
+      "title": "Unknown",
+      "content_type": "blog_post",
+      "platform": "website",
+      "total_views": 100,
+      "total_engagement": 0,
+      "conversion_rate": 0.0,
+      "quality_score": 0.0,
+      "performance_score": 0.02,
+      "created_at": "2025-08-18 20:00:21.679724",
+      "published_at": null,
+      "last_updated": "2025-08-18 20:00:21.679728"
+    }
+  ],
+  "platform_breakdown": {
+    "website": {
+      "total_content": 1,
+      "total_views": 100,
+      "total_engagement": 0,
+      "avg_performance": 0.02,
+      "best_content_type": "blog_post"
+    }
+  },
+  "content_type_analysis": {
+    "blog_post": {
+      "total_content": 1,
+      "total_views": 100,
+      "total_engagement": 0,
+      "avg_performance": 0.02,
+      "best_platform": "website",
+      "engagement_rate": 0.0,
+      "conversion_rate": 0.0
+    }
+  },
+  "trends": {
+    "performance_trend": [],
+    "engagement_trend": [
+      {
+        "date": "2025-08-18",
+        "value": 100
+      }
+    ],
+    "content_volume_trend": [
+      {
+        "date": "2025-08-18",
+        "value": 1
+      }
+    ],
+    "platform_trend": [
+      {
+        "date": "2025-08-18",
+        "value": 0
+      }
+    ]
+  },
+  "recommendations": [
+    "Overall content performance is below target. Consider reviewing content quality and engagement strategies.",
+    "Performance on website is low. Optimize content specifically for this platform.",
+    "Focus on creating more blog_post content as it performs best."
+  ]
+}

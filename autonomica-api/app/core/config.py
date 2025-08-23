@@ -3,9 +3,9 @@ Configuration settings for Autonomica API
 """
 
 import os
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 from functools import lru_cache
 
 
@@ -28,15 +28,32 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     
     # CORS Configuration
-    ALLOWED_ORIGINS: List[str] = Field(
+    ALLOWED_ORIGINS: Union[str, List[str]] = Field(
         default=[
             "http://localhost:3000",
             "http://localhost:3001", 
             "https://autonomica.vercel.app",
             "https://*.vercel.app"
         ],
-        env="ALLOWED_ORIGINS"
+        env="ALLOWED_ORIGINS",
+        description="Comma-separated list of allowed origins"
     )
+    
+    @field_validator('ALLOWED_ORIGINS', mode='after')
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        """Parse ALLOWED_ORIGINS from environment variable or use default"""
+        if isinstance(v, str):
+            if v.strip() == "":
+                return [
+                    "http://localhost:3000",
+                    "http://localhost:3001", 
+                    "https://autonomica.vercel.app",
+                    "https://*.vercel.app"
+                ]
+            # Split by comma and strip whitespace
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     
     # Database Configuration
     DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")

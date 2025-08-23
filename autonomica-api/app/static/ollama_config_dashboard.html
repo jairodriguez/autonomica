@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Configuration Management Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card h3 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #718096;
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+        }
+
+        .btn-success {
+            background: #38a169;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-healthy { background-color: #38a169; }
+        .status-warning { background-color: #d69e2e; }
+        .status-error { background-color: #e53e3e; }
+
+        .config-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #f7fafc;
+            transition: background-color 0.2s ease;
+        }
+
+        .config-item:hover {
+            background-color: #f7fafc;
+        }
+
+        .config-item:last-child {
+            border-bottom: none;
+        }
+
+        .config-info {
+            flex: 1;
+        }
+
+        .config-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .config-description {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-top: 2px;
+        }
+
+        .config-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background-color: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .alert-error {
+            background-color: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .alert-info {
+            background-color: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .tab:hover {
+            background-color: #f7fafc;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Ollama Configuration Management</h1>
+            <p>Comprehensive configuration management for Ollama models, user preferences, and team settings</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="total-presets">-</div>
+                <div class="stat-label">Parameter Presets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-users">-</div>
+                <div class="stat-label">User Configs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-projects">-</div>
+                <div class="stat-label">Project Configs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-teams">-</div>
+                <div class="stat-label">Team Configs</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="presets">Parameter Presets</div>
+            <div class="tab" data-tab="users">User Preferences</div>
+            <div class="tab" data-tab="projects">Project Configs</div>
+            <div class="tab" data-tab="teams">Team Configs</div>
+            <div class="tab" data-tab="backup">Backup & Restore</div>
+            <div class="tab" data-tab="sharing">Configuration Sharing</div>
+        </div>
+
+        <!-- Parameter Presets Tab -->
+        <div id="presets" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Create New Preset</h3>
+                    <form id="preset-form">
+                        <div class="form-group">
+                            <label for="preset-name">Preset Name</label>
+                            <input type="text" id="preset-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-description">Description</label>
+                            <textarea id="preset-description" rows="3" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-temperature">Temperature</label>
+                            <input type="range" id="preset-temperature" min="0" max="2" step="0.1" value="0.7">
+                            <span id="temp-value">0.7</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-top-p">Top P</label>
+                            <input type="range" id="preset-top-p" min="0" max="1" step="0.05" value="0.9">
+                            <span id="top-p-value">0.9</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-top-k">Top K</label>
+                            <input type="number" id="preset-top-k" min="1" max="100" value="40">
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-repeat-penalty">Repeat Penalty</label>
+                            <input type="range" id="preset-repeat-penalty" min="0.8" max="2.0" step="0.05" value="1.1">
+                            <span id="repeat-penalty-value">1.1</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-tags">Tags (comma-separated)</label>
+                            <input type="text" id="preset-tags" placeholder="creative, writing, story">
+                        </div>
+                        <button type="submit" class="btn">Create Preset</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>Available Presets</h3>
+                    <div id="presets-list" class="config-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading presets...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Preferences Tab -->
+        <div id="users" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Create User Preferences</h3>
+                    <form id="user-preferences-form">
+                        <div class="form-group">
+                            <label for="user-id">User ID</label>
+                            <input type="text" id="user-id" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="default-model">Default Model</label>
+                            <input type="text" id="default-model" value="llama3.1:8b">
+                        </div>
+                        <div class="form-group">
+                            <label for="coding-model">Preferred Coding Model</label>
+                            <input type="text" id="coding-model" placeholder="llama3.1:8b">
+                        </div>
+                        <div class="form-group">
+                            <label for="content-model">Preferred Content Model</label>
+                            <input type="text" id="content-model" placeholder="mixtral:8x7b">
+                        </div>
+                        <button type="submit" class="btn">Save Preferences</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>User Configurations</h3>
+                    <div id="users-list" class="config-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading user configurations...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Configs Tab -->
+        <div id="projects" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Create Project Configuration</h3>
+                    <form id="project-config-form">
+                        <div class="form-group">
+                            <label for="project-id">Project ID</label>
+                            <input type="text" id="project-id" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="project-name">Project Name</label>
+                            <input type="text" id="project-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="project-default-model">Default Model</label>
+                            <input type="text" id="project-default-model" value="llama3.1:8b">
+                        </div>
+                        <div class="form-group">
+                            <label for="project-team-members">Team Members (comma-separated)</label>
+                            <input type="text" id="project-team-members" placeholder="user1, user2, user3">
+                        </div>
+                        <button type="submit" class="btn">Create Project Config</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>Project Configurations</h3>
+                    <div id="projects-list" class="config-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading project configurations...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Configs Tab -->
+        <div id="teams" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Create Team Configuration</h3>
+                    <form id="team-config-form">
+                        <div class="form-group">
+                            <label for="team-id">Team ID</label>
+                            <input type="text" id="team-id" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="team-name">Team Name</label>
+                            <input type="text" id="team-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="team-resource-limits">Resource Limits (JSON)</label>
+                            <textarea id="team-resource-limits" rows="4" placeholder='{"max_memory": "8GB", "max_cpu": "4"}'></textarea>
+                        </div>
+                        <button type="submit" class="btn">Create Team Config</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>Team Configurations</h3>
+                    <div id="teams-list" class="config-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading team configurations...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup & Restore Tab -->
+        <div id="backup" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Backup & Restore</h3>
+                    <div class="btn-group">
+                        <button class="btn" onclick="createBackup()">Create Backup</button>
+                        <button class="btn btn-secondary" onclick="refreshBackups()">Refresh List</button>
+                    </div>
+                    <div id="backups-list" class="config-list" style="margin-top: 20px;">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading backups...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Import/Export</h3>
+                    <div class="form-group">
+                        <label for="export-config-type">Configuration Type</label>
+                        <select id="export-config-type">
+                            <option value="parameter_presets">Parameter Presets</option>
+                            <option value="model_preferences">User Preferences</option>
+                            <option value="custom_settings">Project/Team Configs</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="export-config-id">Configuration ID</label>
+                        <input type="text" id="export-config-id" placeholder="preset_name or user_id">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn" onclick="exportConfiguration()">Export</button>
+                        <button class="btn btn-secondary" onclick="showImportForm()">Import</button>
+                    </div>
+                    
+                    <div id="import-form" style="display: none; margin-top: 20px;">
+                        <div class="form-group">
+                            <label for="import-file">Configuration File</label>
+                            <input type="file" id="import-file" accept=".json">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="import-overwrite"> Overwrite existing configuration
+                            </label>
+                        </div>
+                        <button class="btn btn-success" onclick="importConfiguration()">Import</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Sharing Tab -->
+        <div id="sharing" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Share Configuration</h3>
+                    <form id="share-config-form">
+                        <div class="form-group">
+                            <label for="share-config-type">Configuration Type</label>
+                            <select id="share-config-type" required>
+                                <option value="parameter_presets">Parameter Presets</option>
+                                <option value="model_preferences">User Preferences</option>
+                                <option value="custom_settings">Project/Team Configs</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="share-config-id">Configuration ID</label>
+                            <input type="text" id="share-config-id" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="share-with">Share With (User/Team ID)</label>
+                            <input type="text" id="share-with" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="share-permissions">Permissions</label>
+                            <select id="share-permissions">
+                                <option value="read">Read Only</option>
+                                <option value="write">Read/Write</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn">Share Configuration</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>Shared With Me</h3>
+                    <div id="shared-configs-list" class="config-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading shared configurations...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentTab = 'presets';
+        let configSummary = {};
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTabs();
+            loadConfigurationSummary();
+            loadTabContent(currentTab);
+        });
+
+        // Tab management
+        function initializeTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+        }
+
+        function switchTab(tabName) {
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+
+            currentTab = tabName;
+            loadTabContent(tabName);
+        }
+
+        function loadTabContent(tabName) {
+            switch(tabName) {
+                case 'presets':
+                    loadPresets();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'projects':
+                    loadProjects();
+                    break;
+                case 'teams':
+                    loadTeams();
+                    break;
+                case 'backup':
+                    loadBackups();
+                    break;
+                case 'sharing':
+                    loadSharedConfigs();
+                    break;
+            }
+        }
+
+        // Configuration summary
+        async function loadConfigurationSummary() {
+            try {
+                const response = await fetch('/api/ai/ollama/config/summary');
+                if (response.ok) {
+                    configSummary = await response.json();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Failed to load configuration summary:', error);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('total-presets').textContent = configSummary.total_presets || 0;
+            document.getElementById('total-users').textContent = configSummary.total_users || 0;
+            document.getElementById('total-projects').textContent = configSummary.total_projects || 0;
+            document.getElementById('total-teams').textContent = configSummary.total_teams || 0;
+        }
+
+        // Parameter presets
+        async function loadPresets() {
+            try {
+                const response = await fetch('/api/ai/ollama/config/presets');
+                if (response.ok) {
+                    const presets = await response.json();
+                    displayPresets(presets);
+                }
+            } catch (error) {
+                console.error('Failed to load presets:', error);
+                showAlert('Failed to load presets', 'error');
+            }
+        }
+
+        function displayPresets(presets) {
+            const container = document.getElementById('presets-list');
+            if (presets.length === 0) {
+                container.innerHTML = '<p>No presets found. Create your first preset above!</p>';
+                return;
+            }
+
+            container.innerHTML = presets.map(preset => `
+                <div class="config-item">
+                    <div class="config-info">
+                        <div class="config-name">${preset.name}</div>
+                        <div class="config-description">${preset.description}</div>
+                        <small>Usage: ${preset.usage_count} times | Tags: ${preset.tags.join(', ') || 'none'}</small>
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-small btn-secondary" onclick="editPreset('${preset.name}')">Edit</button>
+                        <button class="btn btn-small btn-danger" onclick="deletePreset('${preset.name}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Form submissions
+        document.getElementById('preset-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const presetData = {
+                name: document.getElementById('preset-name').value,
+                description: document.getElementById('preset-description').value,
+                temperature: parseFloat(document.getElementById('preset-temperature').value),
+                top_p: parseFloat(document.getElementById('preset-top-p').value),
+                top_k: parseInt(document.getElementById('preset-top-k').value),
+                repeat_penalty: parseFloat(document.getElementById('preset-repeat-penalty').value),
+                tags: document.getElementById('preset-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+            };
+
+            try {
+                const response = await fetch('/api/ai/ollama/config/presets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(presetData)
+                });
+
+                if (response.ok) {
+                    showAlert('Preset created successfully!', 'success');
+                    this.reset();
+                    loadPresets();
+                    loadConfigurationSummary();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to create preset: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to create preset', 'error');
+            }
+        });
+
+        // User preferences
+        async function loadUsers() {
+            try {
+                // For demo purposes, we'll show a placeholder
+                const container = document.getElementById('users-list');
+                container.innerHTML = '<p>User configurations will be loaded when users create preferences.</p>';
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        }
+
+        // Project configs
+        async function loadProjects() {
+            try {
+                // For demo purposes, we'll show a placeholder
+                const container = document.getElementById('projects-list');
+                container.innerHTML = '<p>Project configurations will be loaded when projects are created.</p>';
+            } catch (error) {
+                console.error('Failed to load projects:', error);
+            }
+        }
+
+        // Team configs
+        async function loadTeams() {
+            try {
+                // For demo purposes, we'll show a placeholder
+                const container = document.getElementById('teams-list');
+                container.innerHTML = '<p>Team configurations will be loaded when teams are created.</p>';
+            } catch (error) {
+                console.error('Failed to load teams:', error);
+            }
+        }
+
+        // Backup management
+        async function loadBackups() {
+            try {
+                const response = await fetch('/api/ai/ollama/config/backup');
+                if (response.ok) {
+                    const backups = await response.json();
+                    displayBackups(backups);
+                }
+            } catch (error) {
+                console.error('Failed to load backups:', error);
+            }
+        }
+
+        function displayBackups(backups) {
+            const container = document.getElementById('backups-list');
+            if (backups.length === 0) {
+                container.innerHTML = '<p>No backups found. Create your first backup!</p>';
+                return;
+            }
+
+            container.innerHTML = backups.map(backup => `
+                <div class="config-item">
+                    <div class="config-info">
+                        <div class="config-name">${backup.backup_name}</div>
+                        <div class="config-description">Created: ${new Date(backup.created_at).toLocaleString()}</div>
+                        <small>Contents: ${backup.contents.presets} presets, ${backup.contents.users} users, ${backup.contents.projects} projects, ${backup.contents.teams} teams</small>
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-small btn-success" onclick="restoreBackup('${backup.backup_name}')">Restore</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteBackup('${backup.backup_name}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createBackup() {
+            try {
+                const response = await fetch('/api/ai/ollama/config/backup', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    showAlert('Backup created successfully!', 'success');
+                    loadBackups();
+                    loadConfigurationSummary();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to create backup: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to create backup', 'error');
+            }
+        }
+
+        async function restoreBackup(backupName) {
+            if (!confirm(`Are you sure you want to restore from backup '${backupName}'? This will overwrite current configurations.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ai/ollama/config/backup/${backupName}/restore`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    showAlert('Configuration restored successfully!', 'success');
+                    loadConfigurationSummary();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to restore backup: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to restore backup', 'error');
+            }
+        }
+
+        async function deleteBackup(backupName) {
+            if (!confirm(`Are you sure you want to delete backup '${backupName}'?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ai/ollama/config/backup/${backupName}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showAlert('Backup deleted successfully!', 'success');
+                    loadBackups();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to delete backup: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to delete backup', 'error');
+            }
+        }
+
+        // Import/Export
+        async function exportConfiguration() {
+            const configType = document.getElementById('export-config-type').value;
+            const configId = document.getElementById('export-config-id').value;
+
+            if (!configId) {
+                showAlert('Please enter a configuration ID', 'error');
+                return;
+            }
+
+            try {
+                window.open(`/api/ai/ollama/config/export/${configType}/${configId}`, '_blank');
+                showAlert('Configuration exported successfully!', 'success');
+            } catch (error) {
+                showAlert('Failed to export configuration', 'error');
+            }
+        }
+
+        function showImportForm() {
+            const importForm = document.getElementById('import-form');
+            importForm.style.display = importForm.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function importConfiguration() {
+            const fileInput = document.getElementById('import-file');
+            const configType = document.getElementById('export-config-type').value;
+            const configId = document.getElementById('export-config-id').value;
+            const overwrite = document.getElementById('import-overwrite').checked;
+
+            if (!fileInput.files[0]) {
+                showAlert('Please select a file to import', 'error');
+                return;
+            }
+
+            if (!configId) {
+                showAlert('Please enter a configuration ID', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`/api/ai/ollama/config/import/${configType}/${configId}?overwrite=${overwrite}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    showAlert('Configuration imported successfully!', 'success');
+                    loadConfigurationSummary();
+                    loadTabContent(currentTab);
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to import configuration: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to import configuration', 'error');
+            }
+        }
+
+        // Configuration sharing
+        async function loadSharedConfigs() {
+            try {
+                // For demo purposes, we'll show a placeholder
+                const container = document.getElementById('shared-configs-list');
+                container.innerHTML = '<p>Shared configurations will be loaded when configurations are shared with you.</p>';
+            } catch (error) {
+                console.error('Failed to load shared configs:', error);
+            }
+        }
+
+        document.getElementById('share-config-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const shareData = {
+                config_type: document.getElementById('share-config-type').value,
+                config_id: document.getElementById('share-config-id').value,
+                shared_with: document.getElementById('share-with').value,
+                permissions: document.getElementById('share-permissions').value
+            };
+
+            try {
+                const response = await fetch('/api/ai/ollama/config/share', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(shareData)
+                });
+
+                if (response.ok) {
+                    showAlert('Configuration shared successfully!', 'success');
+                    this.reset();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to share configuration: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to share configuration', 'error');
+            }
+        });
+
+        // Utility functions
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+            
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function refreshBackups() {
+            loadBackups();
+        }
+
+        // Range input value display
+        document.getElementById('preset-temperature').addEventListener('input', function() {
+            document.getElementById('temp-value').textContent = this.value;
+        });
+
+        document.getElementById('preset-top-p').addEventListener('input', function() {
+            document.getElementById('top-p-value').textContent = this.value;
+        });
+
+        document.getElementById('preset-repeat-penalty').addEventListener('input', function() {
+            document.getElementById('repeat-penalty-value').textContent = this.value;
+        });
+
+        // Preset management functions
+        async function editPreset(presetName) {
+            // Load preset data and populate form
+            try {
+                const response = await fetch(`/api/ai/ollama/config/presets/${presetName}`);
+                if (response.ok) {
+                    const preset = await response.json();
+                    
+                    document.getElementById('preset-name').value = preset.name;
+                    document.getElementById('preset-description').value = preset.description;
+                    document.getElementById('preset-temperature').value = preset.temperature;
+                    document.getElementById('preset-top-p').value = preset.top_p;
+                    document.getElementById('preset-top-k').value = preset.top_k;
+                    document.getElementById('preset-repeat-penalty').value = preset.repeat_penalty;
+                    document.getElementById('preset-tags').value = preset.tags.join(', ');
+                    
+                    // Change form to update mode
+                    const submitBtn = document.querySelector('#preset-form button[type="submit"]');
+                    submitBtn.textContent = 'Update Preset';
+                    submitBtn.onclick = function(e) {
+                        e.preventDefault();
+                        updatePreset(presetName);
+                    };
+                }
+            } catch (error) {
+                showAlert('Failed to load preset for editing', 'error');
+            }
+        }
+
+        async function updatePreset(presetName) {
+            const presetData = {
+                name: presetName,
+                description: document.getElementById('preset-description').value,
+                temperature: parseFloat(document.getElementById('preset-temperature').value),
+                top_p: parseFloat(document.getElementById('preset-top-p').value),
+                top_k: parseInt(document.getElementById('preset-top-k').value),
+                repeat_penalty: parseFloat(document.getElementById('preset-repeat-penalty').value),
+                tags: document.getElementById('preset-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+            };
+
+            try {
+                const response = await fetch(`/api/ai/ollama/config/presets/${presetName}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(presetData)
+                });
+
+                if (response.ok) {
+                    showAlert('Preset updated successfully!', 'success');
+                    resetPresetForm();
+                    loadPresets();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to update preset: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to update preset', 'error');
+            }
+        }
+
+        async function deletePreset(presetName) {
+            if (!confirm(`Are you sure you want to delete preset '${presetName}'?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ai/ollama/config/presets/${presetName}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showAlert('Preset deleted successfully!', 'success');
+                    loadPresets();
+                    loadConfigurationSummary();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to delete preset: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to delete preset', 'error');
+            }
+        }
+
+        function resetPresetForm() {
+            document.getElementById('preset-form').reset();
+            const submitBtn = document.querySelector('#preset-form button[type="submit"]');
+            submitBtn.textContent = 'Create Preset';
+            submitBtn.onclick = null;
+            
+            // Reset range value displays
+            document.getElementById('temp-value').textContent = '0.7';
+            document.getElementById('top-p-value').textContent = '0.9';
+            document.getElementById('repeat-penalty-value').textContent = '1.1';
+        }
+    </script>
+</body>
+</html>
+
+
+
+

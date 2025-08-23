@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomica Content Management System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .sidebar {
+            transition: transform 0.3s ease;
+        }
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        .content-area {
+            transition: margin-left 0.3s ease;
+        }
+        .content-area.expanded {
+            margin-left: 0;
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-draft { background-color: #fef3c7; color: #92400e; }
+        .status-review { background-color: #dbeafe; color: #1e40af; }
+        .status-approved { background-color: #d1fae5; color: #065f46; }
+        .status-published { background-color: #c7d2fe; color: #3730a3; }
+        .status-archived { background-color: #f3e8ff; color: #7c3aed; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
+        <div class="flex items-center justify-between p-6 border-b">
+            <h1 class="text-xl font-bold text-gray-800">Autonomica CMS</h1>
+            <button id="sidebar-toggle" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        
+        <nav class="mt-6">
+            <div class="px-4 space-y-2">
+                <a href="#dashboard" class="nav-link flex items-center px-4 py-2 text-gray-700 rounded-lg hover:bg-gray-100 active">
+                    <i class="fas fa-tachometer-alt mr-3"></i>
+                    Dashboard
+                </a>
+                <a href="#content-generation" class="nav-link flex items-center px-4 py-2 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <i class="fas fa-magic mr-3"></i>
+                    Content Generation
+                </a>
+                <a href="#content-repurpose" class="nav-link flex items-center px-4 py-2 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <i class="fas fa-recycle mr-3"></i>
+                    Content Repurpose
+                </a>
+                <a href="#content-management" class="nav-link flex items-center px-4 py-2 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <i class="fas fa-folder mr-3"></i>
+                    Content Management
+                </a>
+                <a href="#workflow" class="nav-link flex items-center px-4 py-2 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <i class="fas fa-project-diagram mr-3"></i>
+                    Workflow
+                </a>
+                <a href="#analytics" class="nav-link flex items-center px-4 py-2 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <i class="fas fa-chart-bar mr-3"></i>
+                    Analytics
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="main-content" class="content-area ml-64 min-h-screen">
+        <!-- Top Navigation -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center space-x-4">
+                    <button id="mobile-sidebar-toggle" class="text-gray-500 hover:text-gray-700 md:hidden">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 id="page-title" class="text-2xl font-semibold text-gray-800">Dashboard</h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" placeholder="Search content..." class="w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                    </div>
+                    <button class="p-2 text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <img src="https://via.placeholder.com/32x32" alt="User" class="w-8 h-8 rounded-full">
+                        <span class="text-sm font-medium text-gray-700">User</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="p-6">
+            <!-- Dashboard Section -->
+            <div id="dashboard" class="page-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6 card-hover">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                <i class="fas fa-file-alt text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Total Content</p>
+                                <p id="total-content" class="text-2xl font-semibold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6 card-hover">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                                <i class="fas fa-clock text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">In Review</p>
+                                <p id="in-review-content" class="text-2xl font-semibold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6 card-hover">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100 text-green-600">
+                                <i class="fas fa-check-circle text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Approved</p>
+                                <p id="approved-content" class="text-2xl font-semibold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6 card-hover">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                                <i class="fas fa-globe text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Published</p>
+                                <p id="published-content" class="text-2xl font-semibold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Recent Content -->
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="px-6 py-4 border-b">
+                            <h3 class="text-lg font-semibold text-gray-800">Recent Content</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="recent-content-list" class="space-y-4">
+                                <div class="text-center text-gray-500 py-8">
+                                    <i class="fas fa-inbox text-4xl mb-4"></i>
+                                    <p>No content yet</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Health -->
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="px-6 py-4 border-b">
+                            <h3 class="text-lg font-semibold text-gray-800">System Health</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="system-health" class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Versioning Service</span>
+                                    <span class="status-badge status-approved">Healthy</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Lifecycle Manager</span>
+                                    <span class="status-badge status-approved">Healthy</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Quality Orchestrator</span>
+                                    <span class="status-badge status-approved">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Generation Section -->
+            <div id="content-generation" class="page-content hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-800">AI Content Generation</h3>
+                    </div>
+                    <div class="p-6">
+                        <form id="content-generation-form" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
+                                    <select id="content-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="blog_post">Blog Post</option>
+                                        <option value="social_media_post">Social Media Post</option>
+                                        <option value="video_script">Video Script</option>
+                                        <option value="email_newsletter">Email Newsletter</option>
+                                        <option value="whitepaper">Whitepaper</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Platforms</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="website" class="mr-2" checked>
+                                            <span class="text-sm">Website</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="twitter" class="mr-2">
+                                            <span class="text-sm">Twitter</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="linkedin" class="mr-2">
+                                            <span class="text-sm">LinkedIn</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="instagram" class="mr-2">
+                                            <span class="text-sm">Instagram</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Prompt/Description</label>
+                                <textarea id="content-prompt" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Describe the content you want to generate..."></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Brand Voice</label>
+                                    <select id="brand-voice" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="Professional and engaging">Professional and engaging</option>
+                                        <option value="Casual and friendly">Casual and friendly</option>
+                                        <option value="Formal and authoritative">Formal and authoritative</option>
+                                        <option value="Creative and innovative">Creative and innovative</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
+                                    <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.7" class="w-full">
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Focused</span>
+                                        <span id="temperature-value">0.7</span>
+                                        <span>Creative</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
+                                    <input type="number" id="max-tokens" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Auto">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                                <input type="text" id="content-tags" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter tags separated by commas">
+                            </div>
+
+                            <div class="flex justify-end space-x-4">
+                                <button type="button" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Preview</button>
+                                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <i class="fas fa-magic mr-2"></i>
+                                    Generate Content
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Generated Content Display -->
+                        <div id="generated-content" class="mt-8 hidden">
+                            <div class="border-t pt-6">
+                                <h4 class="text-lg font-semibold text-gray-800 mb-4">Generated Content</h4>
+                                <div id="content-display" class="bg-gray-50 rounded-lg p-4">
+                                    <!-- Content will be displayed here -->
+                                </div>
+                                <div class="mt-4 flex justify-end space-x-4">
+                                    <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                        <i class="fas fa-edit mr-2"></i>
+                                        Edit
+                                    </button>
+                                    <button class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                        <i class="fas fa-save mr-2"></i>
+                                        Save Draft
+                                    </button>
+                                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                        <i class="fas fa-paper-plane mr-2"></i>
+                                        Submit for Review
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Repurpose Section -->
+            <div id="content-repurpose" class="page-content hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-800">Content Repurposing</h3>
+                    </div>
+                    <div class="p-6">
+                        <form id="content-repurpose-form" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Source Content</label>
+                                    <select id="source-content" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Select source content...</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Format</label>
+                                    <select id="target-format" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="tweets">Tweets</option>
+                                        <option value="thread">Thread</option>
+                                        <option value="carousel">Carousel/Slides</option>
+                                        <option value="video_script">Video Script</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Platforms</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="twitter" class="mr-2" checked>
+                                            <span class="text-sm">Twitter</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="linkedin" class="mr-2">
+                                            <span class="text-sm">LinkedIn</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" value="instagram" class="mr-2">
+                                            <span class="text-sm">Instagram</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Number of Items</label>
+                                    <input type="number" id="num-items" min="1" max="10" value="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Brand Voice</label>
+                                <select id="repurpose-brand-voice" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="Professional and engaging">Professional and engaging</option>
+                                    <option value="Casual and friendly">Casual and friendly</option>
+                                    <option value="Formal and authoritative">Formal and authoritative</option>
+                                    <option value="Creative and innovative">Creative and innovative</option>
+                                </select>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <i class="fas fa-recycle mr-2"></i>
+                                    Repurpose Content
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Repurposed Content Display -->
+                        <div id="repurposed-content" class="mt-8 hidden">
+                            <div class="border-t pt-6">
+                                <h4 class="text-lg font-semibold text-gray-800 mb-4">Repurposed Content</h4>
+                                <div id="repurpose-display" class="space-y-4">
+                                    <!-- Repurposed content will be displayed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Management Section -->
+            <div id="content-management" class="page-content hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-gray-800">Content Management</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                    <i class="fas fa-filter mr-2"></i>
+                                    Filter
+                                </button>
+                                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                    <i class="fas fa-download mr-2"></i>
+                                    Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="content-table-body" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                                            <i class="fas fa-inbox text-4xl mb-4 block"></i>
+                                            <p>No content available</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Section -->
+            <div id="workflow" class="page-content hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-800">Content Workflow</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Draft Column -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <i class="fas fa-edit mr-2 text-gray-600"></i>
+                                    Draft
+                                    <span id="draft-count" class="ml-2 bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">0</span>
+                                </h4>
+                                <div id="draft-column" class="space-y-3 min-h-32">
+                                    <!-- Draft items will be displayed here -->
+                                </div>
+                            </div>
+
+                            <!-- Review Column -->
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <i class="fas fa-clock mr-2 text-blue-600"></i>
+                                    In Review
+                                    <span id="review-count" class="ml-2 bg-blue-200 text-blue-700 text-xs px-2 py-1 rounded-full">0</span>
+                                </h4>
+                                <div id="review-column" class="space-y-3 min-h-32">
+                                    <!-- Review items will be displayed here -->
+                                </div>
+                            </div>
+
+                            <!-- Published Column -->
+                            <div class="bg-green-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <i class="fas fa-check-circle mr-2 text-green-600"></i>
+                                    Published
+                                    <span id="published-count" class="ml-2 bg-green-200 text-green-700 text-xs px-2 py-1 rounded-full">0</span>
+                                </h4>
+                                <div id="published-column" class="space-y-3 min-h-32">
+                                    <!-- Published items will be displayed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Section -->
+            <div id="analytics" class="page-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Content Performance Chart -->
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="px-6 py-4 border-b">
+                            <h3 class="text-lg font-semibold text-gray-800">Content Performance</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="performance-chart" class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <p class="text-gray-500">Chart will be displayed here</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Workflow Analytics -->
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="px-6 py-4 border-b">
+                            <h3 class="text-lg font-semibold text-gray-800">Workflow Analytics</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="workflow-analytics" class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Average Review Time</span>
+                                    <span class="text-lg font-semibold text-gray-900">2.5 days</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Approval Rate</span>
+                                    <span class="text-lg font-semibold text-gray-900">85%</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Content Velocity</span>
+                                    <span class="text-lg font-semibold text-gray-900">12/week</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+</body>
+</html>
+
+
+
+

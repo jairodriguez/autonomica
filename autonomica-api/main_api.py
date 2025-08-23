@@ -90,11 +90,13 @@ from app.api.routes.seo_pipeline import router as seo_pipeline_router
 from app.api.routes.keyword_suggestions import router as keyword_suggestions_router
 from app.api.routes.seo_scores import router as seo_scores_router
 from app.api.routes.cache_management import router as cache_management_router
+from app.api.routes.ollama_config import router as ollama_config_router
 app.include_router(seo_router)
 app.include_router(seo_pipeline_router)
 app.include_router(keyword_suggestions_router)
 app.include_router(seo_scores_router)
 app.include_router(cache_management_router)
+app.include_router(ollama_config_router)
 
 # Instantiate central Workforce orchestrator
 workforce = Workforce(config.AI_MODEL)

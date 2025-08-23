@@ -1,0 +1,17 @@
+{
+  "name": "creative_writing",
+  "description": "Optimized for creative writing and storytelling",
+  "temperature": 0.9,
+  "top_p": 0.95,
+  "top_k": 50,
+  "repeat_penalty": 1.05,
+  "seed": null,
+  "num_ctx": null,
+  "num_gpu": null,
+  "num_thread": null,
+  "stop": null,
+  "created_at": "2025-08-20 21:13:12.318079",
+  "updated_at": "2025-08-20 21:13:12.318087",
+  "tags": [],
+  "usage_count": 0
+}
